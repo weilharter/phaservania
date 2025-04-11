@@ -68,8 +68,6 @@ export class Game extends Scene {
       });
     }
 
-    // Input
-
     if (!this.input.keyboard) {
       throw new Error("Keyboard input not available");
     }
@@ -131,8 +129,7 @@ export class Game extends Scene {
 
   update() {
     if (this.gameOver) {
-      this.scene.stop("Game");
-      this.scene.start("GameOver");
+      this.scene.start("GameOver", { score: this.score }); // Pass the score as data
       this.gameOver = false;
       return;
     }

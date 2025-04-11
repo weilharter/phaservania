@@ -4,9 +4,14 @@ export class GameOver extends Scene {
   camera: Phaser.Cameras.Scene2D.Camera;
   background: Phaser.GameObjects.Image;
   gameover_text: Phaser.GameObjects.Text;
+  score: number = 0;
 
   constructor() {
     super("GameOver");
+  }
+
+  init(data: { score: number }) {
+    this.score = data.score;
   }
 
   create() {
@@ -19,20 +24,26 @@ export class GameOver extends Scene {
     this.background = this.add.image(centerX, centerY, "background");
     this.background.setAlpha(0.5);
 
-    this.gameover_text = this.add.text(centerX, centerY, "Game Over", {
-      fontFamily: "Arial Black",
-      fontSize: 64,
-      color: "#ffffff",
-      stroke: "#000000",
-      strokeThickness: 8,
-      align: "center",
-    });
+    this.gameover_text = this.add.text(
+      centerX,
+      centerY,
+      `Game Over\nScore: ${this.score}`,
+      {
+        fontFamily: "Arial Black",
+        fontSize: 64,
+        color: "#ffffff",
+        stroke: "#000000",
+        strokeThickness: 8,
+        align: "center",
+      }
+    );
     this.gameover_text.setOrigin(0.5);
 
-    this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
-      if (event.code === "Enter" || event.code === "Space") {
-        this.scene.start("MainMenu");
-      }
+    const enterKey = this.input.keyboard?.addKey(
+      Phaser.Input.Keyboard.KeyCodes.ENTER
+    );
+    enterKey?.once("down", () => {
+      this.scene.start("MainMenu");
     });
   }
 }

@@ -28,10 +28,11 @@ export class MainMenu extends Scene {
       })
       .setOrigin(0.5);
 
-    this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
-      if (event.code === "Enter" || event.code === "Space") {
-        this.scene.start("Game");
-      }
+    const enterKey = this.input.keyboard?.addKey(
+      Phaser.Input.Keyboard.KeyCodes.ENTER
+    );
+    enterKey?.once("down", () => {
+      this.scene.start("MainMenu");
     });
   }
 }
