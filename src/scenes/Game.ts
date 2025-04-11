@@ -1,6 +1,7 @@
 import { Scene } from "phaser";
 
 const MAX_BOMBS = 5;
+const VELOCITY_X = 800;
 
 export class Game extends Scene {
   player: Phaser.Physics.Arcade.Sprite;
@@ -13,6 +14,7 @@ export class Game extends Scene {
   score: number = 0;
   gameOver: boolean = false;
   scoreText: Phaser.GameObjects.Text;
+  hpText: Phaser.GameObjects.Text;
 
   constructor() {
     super("Game");
@@ -54,9 +56,9 @@ export class Game extends Scene {
       });
     }
 
-    if (!this.anims.exists("turn")) {
+    if (!this.anims.exists("front")) {
       this.anims.create({
-        key: "turn",
+        key: "front",
         frames: [{ key: "dude", frame: 4 }],
         frameRate: 20,
       });
@@ -104,9 +106,14 @@ export class Game extends Scene {
       bomb.body.onWorldBounds = true;
     }
 
-    // Score
-    this.scoreText = this.add.text(16, 16, "Score: 0", {
+    // Create a container for the UI
+    this.scoreText = this.add.text(0, 3, "Score: 0", {
       fontSize: "32px",
+      stroke: "black",
+    });
+    this.hpText = this.add.text(0, 35, "HP: 100", {
+      fontSize: "32px",
+      stroke: "black",
     });
 
     // Colliders
@@ -145,16 +152,17 @@ export class Game extends Scene {
       return;
     }
 
-    const speed = 800;
+    this.hpText.setText("HP: " + this.playerHealth);
+
     if (this.cursorKeys.left.isDown) {
-      this.player.setVelocityX(-speed);
+      this.player.setVelocityX(-VELOCITY_X);
       this.player.anims.play("left", true);
     } else if (this.cursorKeys.right.isDown) {
-      this.player.setVelocityX(speed);
+      this.player.setVelocityX(VELOCITY_X);
       this.player.anims.play("right", true);
     } else {
       this.player.setVelocityX(0);
-      this.player.anims.play("turn");
+      this.player.anims.play("front");
     }
 
     if (
@@ -207,9 +215,15 @@ export class Game extends Scene {
   ) {
     this.playerHealth -= 5;
     const playerBody = player as Phaser.Physics.Arcade.Sprite;
-    // playerBody.setTint(0xff0000);
-    playerBody.anims.play("turn");
-    // playerBody.anims.stop();
+
+    // Set tint to red
+    playerBody.setTint(0xff0000);
+    playerBody.anims.play("front");
+
+    // Create a timer to clear the tint after 0.5 seconds
+    this.time.delayedCall(100, () => {
+      playerBody.clearTint();
+    });
 
     if (this.playerHealth <= 0) {
       this.physics.pause();
