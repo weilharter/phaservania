@@ -174,6 +174,6 @@ export class Game extends Scene {
     playerBody.setTint(0xff0000);
     playerBody.anims.play("turn");
 
-    this.gameOver = true;
+    // this.gameOver = true;
   }
 }
