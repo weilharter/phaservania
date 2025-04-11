@@ -13,10 +13,13 @@ export class GameOver extends Scene {
     this.camera = this.cameras.main;
     this.camera.setBackgroundColor(0xff0000);
 
-    this.background = this.add.image(512, 384, "background");
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2;
+
+    this.background = this.add.image(centerX, centerY, "background");
     this.background.setAlpha(0.5);
 
-    this.gameover_text = this.add.text(512, 384, "Game Over", {
+    this.gameover_text = this.add.text(centerX, centerY, "Game Over", {
       fontFamily: "Arial Black",
       fontSize: 64,
       color: "#ffffff",
@@ -26,8 +29,10 @@ export class GameOver extends Scene {
     });
     this.gameover_text.setOrigin(0.5);
 
-    this.input.once("pointerdown", () => {
-      this.scene.start("MainMenu");
+    this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
+      if (event.code === "Enter" || event.code === "Space") {
+        this.scene.start("MainMenu");
+      }
     });
   }
 }

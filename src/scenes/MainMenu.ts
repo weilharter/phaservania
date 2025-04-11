@@ -10,12 +10,15 @@ export class MainMenu extends Scene {
   }
 
   create() {
-    this.background = this.add.image(512, 384, "background");
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2;
 
-    this.logo = this.add.image(512, 300, "logo");
+    this.background = this.add.image(centerX, centerY, "background");
+
+    this.logo = this.add.image(centerX, centerY - 84, "logo");
 
     this.title = this.add
-      .text(512, 460, "Main Menu", {
+      .text(centerX, centerY + 76, "Main Menu", {
         fontFamily: "Arial Black",
         fontSize: 38,
         color: "#ffffff",
@@ -25,8 +28,10 @@ export class MainMenu extends Scene {
       })
       .setOrigin(0.5);
 
-    this.input.once("pointerdown", () => {
-      this.scene.start("Game");
+    this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
+      if (event.code === "Enter" || event.code === "Space") {
+        this.scene.start("Game");
+      }
     });
   }
 }
