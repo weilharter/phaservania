@@ -63,6 +63,11 @@ export class Game extends Scene {
     });
 
     // Input
+
+    if (!this.input.keyboard) {
+      throw new Error("Keyboard input not available");
+    }
+
     this.cursorKeys = this.input.keyboard.createCursorKeys();
     this.spaceKey = this.input.keyboard.addKey(
       Phaser.Input.Keyboard.KeyCodes.SPACE
@@ -78,6 +83,7 @@ export class Game extends Scene {
     this.stars.children.iterate((child: Phaser.GameObjects.GameObject) => {
       const star = child as Phaser.Physics.Arcade.Image;
       star.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+      return null;
     });
 
     // Bombs
@@ -86,7 +92,7 @@ export class Game extends Scene {
     // Score
     this.scoreText = this.add.text(16, 16, "Score: 0", {
       fontSize: "32px",
-      fill: "#000",
+    //   fill: "#000",
     });
 
     // Colliders
@@ -96,14 +102,22 @@ export class Game extends Scene {
     this.physics.add.overlap(
       this.player,
       this.stars,
-      this.collectStar,
+      (player, star) =>
+        this.collectStar(
+          player as Phaser.Physics.Arcade.Sprite,
+          star as Phaser.Physics.Arcade.Image
+        ),
       undefined,
       this
     );
     this.physics.add.collider(
       this.player,
       this.bombs,
-      this.hitBomb,
+      (player, bomb) =>
+        this.hitBomb(
+          player as Phaser.Physics.Arcade.Sprite,
+          bomb as Phaser.Physics.Arcade.Image
+        ),
       undefined,
       this
     );
@@ -128,14 +142,14 @@ export class Game extends Scene {
 
     if (
       (this.cursorKeys.up.isDown || this.spaceKey.isDown) &&
-      this.player.body.touching.down
+      this.player.body?.touching.down
     ) {
       this.player.setVelocityY(-900);
     }
   }
 
   collectStar(
-    player: Phaser.GameObjects.GameObject,
+    _player: Phaser.GameObjects.GameObject,
     star: Phaser.GameObjects.GameObject
   ) {
     const starBody = star as Phaser.Physics.Arcade.Image;
@@ -149,6 +163,7 @@ export class Game extends Scene {
       this.stars.children.iterate((child: Phaser.GameObjects.GameObject) => {
         const star = child as Phaser.Physics.Arcade.Image;
         star.enableBody(true, star.x, 0, true, true);
+        return null;
       });
 
       const x =
@@ -166,7 +181,7 @@ export class Game extends Scene {
 
   hitBomb(
     player: Phaser.GameObjects.GameObject,
-    bomb: Phaser.GameObjects.GameObject
+    _bomb: Phaser.GameObjects.GameObject
   ) {
     this.physics.pause();
 
