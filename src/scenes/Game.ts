@@ -4,6 +4,7 @@ const MAX_BOMBS = 5;
 
 export class Game extends Scene {
   player: Phaser.Physics.Arcade.Sprite;
+  playerHealth: number = 100;
   stars: Phaser.Physics.Arcade.Group;
   bombs: Phaser.Physics.Arcade.Group;
   platforms: Phaser.Physics.Arcade.StaticGroup;
@@ -89,6 +90,19 @@ export class Game extends Scene {
 
     // Bombs
     this.bombs = this.physics.add.group();
+    for (let i = 0; i < 4; i++) {
+      const x =
+        this.player.x < 400
+          ? Phaser.Math.Between(400, 800)
+          : Phaser.Math.Between(0, 400);
+
+      const bomb = this.bombs.create(x, 16, "bomb");
+      bomb.setBounce(1);
+      bomb.setCollideWorldBounds(false);
+      bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
+      bomb.allowGravity = true;
+      bomb.body.onWorldBounds = true;
+    }
 
     // Score
     this.scoreText = this.add.text(16, 16, "Score: 0", {
@@ -191,12 +205,15 @@ export class Game extends Scene {
     player: Phaser.GameObjects.GameObject,
     _bomb: Phaser.GameObjects.GameObject
   ) {
-    this.physics.pause();
-
+    this.playerHealth -= 5;
     const playerBody = player as Phaser.Physics.Arcade.Sprite;
-    playerBody.setTint(0xff0000);
+    // playerBody.setTint(0xff0000);
     playerBody.anims.play("turn");
+    // playerBody.anims.stop();
 
-    this.gameOver = true;
+    if (this.playerHealth <= 0) {
+      this.physics.pause();
+      this.gameOver = true;
+    }
   }
 }
