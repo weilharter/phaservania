@@ -32,7 +32,7 @@ export class MainMenu extends Scene {
       Phaser.Input.Keyboard.KeyCodes.ENTER
     );
     enterKey?.once("down", () => {
-      this.scene.start("MainMenu");
+      this.scene.start("Game");
     });
   }
 }

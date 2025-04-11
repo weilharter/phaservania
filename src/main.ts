@@ -18,6 +18,10 @@ const config: Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
+  // render: {
+  //   pixelArt: false, // wichtig für scharfe Pixel
+  //   antialias: false,
+  // },
   physics: {
     default: "arcade",
     arcade: {

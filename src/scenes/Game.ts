@@ -1,5 +1,7 @@
 import { Scene } from "phaser";
 
+const MAX_BOMBS = 5;
+
 export class Game extends Scene {
   player: Phaser.Physics.Arcade.Sprite;
   stars: Phaser.Physics.Arcade.Group;
@@ -81,13 +83,8 @@ export class Game extends Scene {
     this.stars = this.physics.add.group({
       key: "star",
       repeat: 11,
+      bounceY: 0.2,
       setXY: { x: 12, y: 0, stepX: 70 },
-    });
-
-    this.stars.children.iterate((child: Phaser.GameObjects.GameObject) => {
-      const star = child as Phaser.Physics.Arcade.Image;
-      // star.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
-      return null;
     });
 
     // Bombs
@@ -96,7 +93,6 @@ export class Game extends Scene {
     // Score
     this.scoreText = this.add.text(16, 16, "Score: 0", {
       fontSize: "32px",
-      //   fill: "#000",
     });
 
     // Colliders
@@ -108,8 +104,8 @@ export class Game extends Scene {
       this.stars,
       (player, star) =>
         this.collectStar(
-          player as Phaser.Physics.Arcade.Sprite,
-          star as Phaser.Physics.Arcade.Image
+          player as Phaser.GameObjects.GameObject,
+          star as Phaser.GameObjects.GameObject
         ),
       undefined,
       this
@@ -119,8 +115,8 @@ export class Game extends Scene {
       this.bombs,
       (player, bomb) =>
         this.hitBomb(
-          player as Phaser.Physics.Arcade.Sprite,
-          bomb as Phaser.Physics.Arcade.Image
+          player as Phaser.GameObjects.GameObject,
+          bomb as Phaser.GameObjects.GameObject
         ),
       undefined,
       this
@@ -129,7 +125,8 @@ export class Game extends Scene {
 
   update() {
     if (this.gameOver) {
-      this.scene.start("GameOver", { score: this.score }); // Pass the score as data
+      this.scene.start("GameOver", { score: this.score });
+      this.scene.stop();
       this.gameOver = false;
       return;
     }
@@ -172,16 +169,21 @@ export class Game extends Scene {
         return null;
       });
 
-      const x =
-        this.player.x < 400
-          ? Phaser.Math.Between(400, 800)
-          : Phaser.Math.Between(0, 400);
+      if (this.bombs.countActive(true) < MAX_BOMBS) {
+        for (let i = 0; i < 5; i++) {
+          const x =
+            this.player.x < 400
+              ? Phaser.Math.Between(400, 800)
+              : Phaser.Math.Between(0, 400);
 
-      const bomb = this.bombs.create(x, 16, "bomb");
-      bomb.setBounce(1);
-      bomb.setCollideWorldBounds(true);
-      bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
-      bomb.allowGravity = false;
+          const bomb = this.bombs.create(x, 16, "bomb");
+          bomb.setBounce(1);
+          bomb.setCollideWorldBounds(false);
+          bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
+          bomb.allowGravity = true;
+          bomb.body.onWorldBounds = true;
+        }
+      }
     }
   }
 
