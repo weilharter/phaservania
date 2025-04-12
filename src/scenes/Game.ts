@@ -121,17 +121,14 @@ export class Game extends Scene {
     this.physics.add.overlap(
       this.enemies,
       this.player,
-      (playerObj, enemyObj) => {
+      (_playerObj, enemyObj) => {
         const enemy = enemyObj as Enemy;
-        const player = playerObj as Phaser.Physics.Arcade.Sprite;
-
         if (!this.playerIsInvincible) {
           const damage = Phaser.Math.Between(5, 15);
           this.handlePlayerDamage(damage);
         }
-
         if (this.isLevelUpEffectActive) {
-          this.hitTarget(enemy, 9999); // Call the hitTarget method to handle enemy damage
+          this.hitTarget(enemy, 9999);
         }
       },
       undefined,
@@ -267,7 +264,7 @@ export class Game extends Scene {
       });
     }
 
-    // Add the level-up animation (placeholder)
+    // Add the level-up animation
     if (!this.anims.exists("levelUpAnim")) {
       this.anims.create({
         key: "levelUpAnim",
@@ -535,44 +532,10 @@ export class Game extends Scene {
       this.xpToNextLevel += 5000; // Increase XP required for the next level
 
       // Trigger level-up effect
-      this.triggerLevelUpEffect();
+      this.player.triggerLevelUpEffect();
     }
     this.updateExperienceBar();
     this.updateLevelText(); // Update the text whenever XP changes
-  }
-
-  triggerLevelUpEffect() {
-    if (this.isLevelUpEffectActive) return; // Prevent multiple effects
-    // Add a shiny overlay sprite
-    const levelUpEffect = this.add.sprite(
-      this.player.x,
-      this.player.y,
-      "levelUpEffect"
-    );
-    levelUpEffect.setScale(0.6); // Scale the effect to fit the player
-    levelUpEffect.setDepth(10); // Ensure it appears above other objects
-    levelUpEffect.play("levelUpAnim"); // Play the level-up animation
-
-    this.sound.play("lightning-shield", { volume: 1, loop: true });
-    // Follow the player during the effect
-    const followPlayer = this.time.addEvent({
-      delay: 16, // Update every frame (~60 FPS)
-      callback: () => {
-        levelUpEffect.setPosition(this.player.x, this.player.y);
-        this.isLevelUpEffectActive = true; // Flag to indicate the effect is active
-        this.playerIsInvincible = true;
-      },
-      callbackScope: this,
-      loop: true,
-    });
-
-    this.time.delayedCall(5000, () => {
-      this.sound.stopByKey("lightning-shield");
-      followPlayer.remove(false); // Stop following the player
-      levelUpEffect.destroy(); // Remove the effect
-      this.isLevelUpEffectActive = false; // Flag to indicate the effect is active
-      this.playerIsInvincible = false;
-    });
   }
 
   evaluateGameOver() {
@@ -601,27 +564,25 @@ export class Game extends Scene {
     }
 
     // Ensure enemies keep moving
-    this.enemies
-      .getChildren()
-      .forEach((enemy: Phaser.Physics.Arcade.Sprite) => {
-        if (enemy.active) {
-          const distanceToPlayer = Math.abs(this.player.x - enemy.x);
-          if (distanceToPlayer < 15) {
-            // Move away from the player if too close
-            const directionX = this.player.x > enemy.x ? -1 : 1; // Move away from the player's X position
-            enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
-          } else if (distanceToPlayer > 15) {
-            // Move closer to the player if too far
-            const directionX = this.player.x > enemy.x ? 1 : -1; // Move towards the player's X position
-            enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
-          } else {
-            enemy.setVelocityX(0); // Stop moving if within the desired range
-          }
-          // Make the enemy jump randomly
-          if (enemy.body?.touching.down && Phaser.Math.Between(0, 200) === 0) {
-            enemy.setVelocityY(Phaser.Math.Between(-200, -800));
-          }
+    this.enemies.getChildren().forEach((enemy: Enemy) => {
+      if (enemy.active) {
+        const distanceToPlayer = Math.abs(this.player.x - enemy.x);
+        if (distanceToPlayer < 15) {
+          // Move away from the player if too close
+          const directionX = this.player.x > enemy.x ? -1 : 1; // Move away from the player's X position
+          enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
+        } else if (distanceToPlayer > 15) {
+          // Move closer to the player if too far
+          const directionX = this.player.x > enemy.x ? 1 : -1; // Move towards the player's X position
+          enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
+        } else {
+          enemy.setVelocityX(0); // Stop moving if within the desired range
         }
-      });
+        // Make the enemy jump randomly
+        if (enemy.body?.touching.down && Phaser.Math.Between(0, 200) === 0) {
+          enemy.setVelocityY(Phaser.Math.Between(-200, -800));
+        }
+      }
+    });
   }
 }
