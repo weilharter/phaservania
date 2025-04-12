@@ -7,15 +7,15 @@ const WORLD_BOUNDS_WIDTH = 2000;
 const PLAYER_GLOBAL_COOLDOWN = 500;
 const PLAYER_GRAVITY_Y = 2000;
 const PLAYER_JUMP_VELOCITY_Y = -900;
-const PLAYER_MOVEMENT_SPEED = 300;
+const PLAYER_MOVEMENT_SPEED = 500;
 
-const MAX_ENEMIES = 10;
+const MAX_ENEMIES = 50;
 const ENEMY_GLOBAL_COOLDOWN = 1000;
-const ENEMY_SPAWN_RATE = 500;
+const ENEMY_SPAWN_RATE = 250;
 const ENEMY_MOVEMENT_SPEED = 100;
 
 export class Game extends Scene {
-  level: number = 1;
+  level: number = 10;
   levelXp: number = 0;
   xpToNextLevel: number = 10000;
   player: Phaser.Physics.Arcade.Sprite;
@@ -263,7 +263,7 @@ export class Game extends Scene {
       // Create the spell
       const spell = this.spells.create(
         this.player.x + spellXOffset, // Adjust starting X position
-        this.player.y + offset, // Adjust Y position for spread
+        this.player.y + offset + 30, // Adjust Y position for spread
         "spell"
       );
 
@@ -272,7 +272,7 @@ export class Game extends Scene {
 
       // Set velocity and reduce gravity for a longer flight
       const speed = 1000; // Moderate speed
-      const gravity = -1000; // Negative gravity to make the arrow fly farther
+      const gravity = -1400; // Negative gravity to make the arrow fly farther
       spell.setVelocityX(direction * speed);
       spell.setGravityY(gravity);
       spell.owner = "player"; // Tag the spell as a player spell
