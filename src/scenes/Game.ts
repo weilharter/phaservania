@@ -4,7 +4,7 @@ import { HEIGHT, WIDTH } from "../main";
 const PLATFORM_VERTICAL_POSITION = 550;
 const WORLD_BOUNDS_WIDTH = 2000;
 
-const PLAYER_GLOBAL_COOLDOWN = 100;
+const PLAYER_GLOBAL_COOLDOWN = 500;
 const PLAYER_GRAVITY_Y = 2000;
 const PLAYER_JUMP_VELOCITY_Y = -900;
 const PLAYER_MOVEMENT_SPEED = 300;
@@ -40,9 +40,9 @@ export class Game extends Scene {
       frameWidth: 32,
       frameHeight: 48,
     });
-    this.load.spritesheet("spell", "assets/spell.png", {
-      frameWidth: 16,
-      frameHeight: 16,
+    this.load.spritesheet("spell", "assets/projectiles.png", {
+      frameWidth: 63,
+      frameHeight: 63,
     });
   }
 
@@ -83,7 +83,7 @@ export class Game extends Scene {
 
     // Physics
     this.physics.add.collider(this.characters, this.platforms);
-    this.physics.add.collider(this.spells, this.platforms, (spell) => {
+    this.physics.add.overlap(this.spells, this.platforms, (spell) => {
       spell.destroy(); // Destroy the spell on collision with platforms
     });
     this.physics.add.collider(this.characters, this.characters);
@@ -171,9 +171,8 @@ export class Game extends Scene {
     if (!this.anims.exists("spellAnim")) {
       this.anims.create({
         key: "spellAnim",
-        frames: this.anims.generateFrameNumbers("spell", { start: 0, end: 5 }), // Adjust frame range as needed
-        frameRate: 40,
-        repeat: 0,
+        frames: this.anims.generateFrameNumbers("spell", { start: 3, end: 5 }),
+        frameRate: 15,
       });
     }
 
@@ -206,7 +205,6 @@ export class Game extends Scene {
       this.player.anims.play("right", true);
     }
   }
-
   castPlayerSpell() {
     if (!this.playerCanAttack) return;
 
@@ -214,10 +212,10 @@ export class Game extends Scene {
 
     // Determine direction based on the player's facing direction
     const direction = this.player.anims.currentAnim?.key == "left" ? -1 : 1; // -1 for left, 1 for right
-    const spellXOffset = direction * 20; // Offset the spell's starting position based on direction
+    const spellXOffset = direction * 25; // Offset the spell's starting position based on direction
 
     // Y-offsets for multiple projectiles (optional)
-    const offsets = [-50, -70, -30]; // Adjust as needed for spread
+    const offsets = [-60, -70, -80]; // Adjust as needed for spread
 
     offsets.forEach((offset) => {
       // Create the spell
@@ -230,13 +228,15 @@ export class Game extends Scene {
       // Play the spell animation
       spell.anims.play("spellAnim");
 
-      // Set velocity based on direction
-      const speed = 1500; // Adjust the speed as needed
+      // Set velocity and reduce gravity for a longer flight
+      const speed = 1000; // Moderate speed
+      const gravity = -1000; // Negative gravity to make the arrow fly farther
       spell.setVelocityX(direction * speed);
+      spell.setGravityY(gravity);
       spell.owner = "player"; // Tag the spell as a player spell
 
-      // Destroy the spell after 2 seconds
-      this.time.delayedCall(2000, () => {
+      // Destroy the spell after 3 seconds
+      this.time.delayedCall(3000, () => {
         if (spell.active) spell.destroy();
       });
     });
@@ -299,9 +299,10 @@ export class Game extends Scene {
     ).normalize();
 
     // Create the spell
-    const spell = this.spells.create(enemy.x, enemy.y - 50, "spell");
+    const spell = this.spells.create(enemy.x, enemy.y - 60, "spell");
     spell.setVelocity(direction.x * 1000, direction.y * 1000); // Set velocity towards the player
-    spell.setGravityY(0);
+    const gravity = -1000; // Negative gravity to make the arrow fly farther
+    spell.setGravityY(gravity);
     spell.setTint(0xff0000); // Red tint
     spell.owner = "enemy"; // Tag the spell as an enemy spell
 
@@ -322,6 +323,7 @@ export class Game extends Scene {
       if (target.hp <= 0) {
         target.destroy(); // Destroy the enemy if HP is 0
       }
+      spell.destroy();
     } else if (spell.owner === "enemy" && target === this.player) {
       if (!this.playerIsInvincible) {
         this.playerHp -= 5; // Reduce player HP
@@ -336,19 +338,19 @@ export class Game extends Scene {
           duration: 100,
           ease: "Linear",
           yoyo: true,
-          repeat: 5, // Blink 5 times
+          repeat: 1, // Blink 5 times
           onComplete: () => {
             this.player.setAlpha(1); // Ensure player is fully visible after blinking
           },
         });
 
-        // Grant invincibility for 1 second
-        this.time.delayedCall(1000, () => {
+        // Grant invincibility for 500 ms
+        this.time.delayedCall(500, () => {
           this.playerIsInvincible = false;
         });
       }
+      spell.destroy();
     }
-    spell.destroy(); // Destroy the spell after collision
   }
 
   updateHealthBar() {
