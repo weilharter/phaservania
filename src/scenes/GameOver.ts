@@ -27,7 +27,7 @@ export class GameOver extends Scene {
     this.gameover_text = this.add.text(
       centerX,
       centerY,
-      `Game Over\nScore: ${this.score}`,
+      `Game Over\nScore: ${this.score ?? 0}`,
       {
         fontFamily: "Arial Black",
         fontSize: 64,
