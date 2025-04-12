@@ -4,6 +4,9 @@ import { Character } from "./Character";
 const PLAYER_GLOBAL_COOLDOWN = 800;
 
 export class Player extends Character {
+  level: number = 1;
+  levelXp: number = 0;
+  xpToNextLevel: number = 2000;
   isInvincible: boolean = false; // Flag to track invincibility
   isLevelUpEffectActive: boolean = false; // Flag to track level-up effect
   levelUpEffect: Phaser.GameObjects.Sprite | null = null; // Reference to the level-up effect sprite
@@ -42,6 +45,19 @@ export class Player extends Character {
     this.scene.time.delayedCall(1000, () => {
       this.isInvincible = false;
     });
+  }
+
+  gainExperience(amount: number) {
+    this.levelXp += amount;
+    if (this.levelXp >= this.xpToNextLevel) {
+      this.levelXp -= this.xpToNextLevel;
+      this.level++;
+      this.hp = 100; // Restore player HP on level-up
+      this.xpToNextLevel += 5000; // Increase XP required for the next level
+
+      // Trigger level-up effect
+      this.triggerLevelUpEffect();
+    }
   }
 
   triggerLevelUpEffect() {

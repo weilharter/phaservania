@@ -4,24 +4,20 @@ import { Player } from "../entities/Player";
 import { Character } from "../entities/Character";
 import { Enemy } from "../entities/Enemy";
 
-const PLATFORM_VERTICAL_POSITION = 315;
-const WORLD_BOUNDS_WIDTH = 2000;
+export const PLATFORM_VERTICAL_POSITION = 315;
+export const WORLD_BOUNDS_WIDTH = 2000;
 
 export const PLAYER_GRAVITY_Y = 2000;
-const PLAYER_JUMP_VELOCITY_Y = -450; // Adjusted for smaller height
-const PLAYER_MOVEMENT_SPEED = 200; // Adjusted for smaller width
+export const PLAYER_JUMP_VELOCITY_Y = -450; // Adjusted for smaller height
+export const PLAYER_MOVEMENT_SPEED = 200; // Adjusted for smaller width
 
-const MAX_ENEMIES = 10; // Reduced due to smaller world size
-const ENEMY_GLOBAL_COOLDOWN = 1000;
-const ENEMY_SPAWN_RATE = 500;
-const ENEMY_MOVEMENT_SPEED = 50; // Adjusted for smaller world
+export const MAX_ENEMIES = 10; // Reduced due to smaller world size
+
+export const ENEMY_SPAWN_RATE = 250;
+export const ENEMY_MOVEMENT_SPEED = 100; // Adjusted for smaller world
 
 export class Game extends Scene {
-  level: number = 1;
-  levelXp: number = 0;
-  xpToNextLevel: number = 2000;
   player: Player;
-  playerIsInvincible: boolean = false;
   platforms: Phaser.Physics.Arcade.Group;
   enemies: Phaser.Physics.Arcade.Group;
   spells: Phaser.Physics.Arcade.Group;
@@ -121,7 +117,7 @@ export class Game extends Scene {
       this.player,
       (_playerObj, enemyObj) => {
         const enemy = enemyObj as Enemy;
-        if (!this.playerIsInvincible) {
+        if (!this.player.isInvincible) {
           const damage = Phaser.Math.Between(5, 15);
           this.handlePlayerDamage(damage);
         }
@@ -403,7 +399,10 @@ export class Game extends Scene {
     this.experienceBar.fillStyle(0x00ff00, 1); // Green color for experience
 
     // Correctly calculate the width of the experience bar
-    const xpWidth = Math.min(80 * (this.levelXp / this.xpToNextLevel), 80); // Adjusted width
+    const xpWidth = Math.min(
+      80 * (this.player.levelXp / this.player.xpToNextLevel),
+      80
+    ); // Adjusted width
     this.experienceBar.fillRect(8, 16, xpWidth, 3); // Adjusted position and height
     this.experienceBar.lineStyle(1, 0x000); // Black border
     this.experienceBar.strokeRect(8, 16, 80, 3); // Adjusted fixed border width
@@ -411,23 +410,14 @@ export class Game extends Scene {
 
   updateLevelText() {
     this.levelText.setText(
-      `Level: ${this.level}\nXP: ${this.levelXp} / ${this.xpToNextLevel}`
+      `Level: ${this.player.level}\nXP: ${this.player.levelXp} / ${this.player.xpToNextLevel}`
     );
     this.levelText.setFontSize(8); // Adjusted font size
     this.levelText.setPosition(8, 24); // Adjusted position
   }
 
   gainExperience(amount: number) {
-    this.levelXp += amount;
-    if (this.levelXp >= this.xpToNextLevel) {
-      this.levelXp -= this.xpToNextLevel;
-      this.level++;
-      this.player.hp = 100; // Restore player HP on level-up
-      this.xpToNextLevel += 5000; // Increase XP required for the next level
-
-      // Trigger level-up effect
-      this.player.triggerLevelUpEffect();
-    }
+    this.player.gainExperience(amount); // Delegate to the Player class
     this.updateExperienceBar();
     this.updateLevelText(); // Update the text whenever XP changes
   }
@@ -436,7 +426,7 @@ export class Game extends Scene {
     if (this.player.hp <= 0) {
       this.scene.stop();
       this.player.hp = 100;
-      this.scene.start("GameOver", { level: this.level }); // End the game if HP is 0
+      this.scene.start("GameOver", { level: this.player.level }); // Use player's level
       this.sound.stopAll();
     }
   }

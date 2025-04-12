@@ -1,6 +1,8 @@
 import { Character } from "./Character";
 import { Player } from "./Player";
 
+const ENEMY_GLOBAL_COOLDOWN = 3000;
+
 export class Enemy extends Character {
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string) {
     super(scene, x, y, texture, 50); // Default HP for enemies
@@ -32,7 +34,7 @@ export class Enemy extends Character {
     spell.anims.play("spellAnim");
 
     // Cleanup spells
-    this.scene.time.delayedCall(3000, () => {
+    this.scene.time.delayedCall(ENEMY_GLOBAL_COOLDOWN, () => {
       spell.destroy();
     });
   }
