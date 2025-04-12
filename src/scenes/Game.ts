@@ -8,7 +8,7 @@ const PLAYER_GRAVITY_Y = 2000;
 const PLAYER_JUMP_VELOCITY_Y = -900;
 const PLAYER_MOVEMENT_SPEED = 300;
 
-const MAX_ENEMIES = 3;
+const MAX_ENEMIES = 1;
 const ENEMY_SPAWN_RATE = 1000;
 const ENEMY_MOVEMENT_SPEED = 200;
 const ENEMY_SPAWN_DISTANCE = 600;
@@ -18,6 +18,7 @@ export class Game extends Scene {
   platforms: Phaser.Physics.Arcade.Group;
   enemies: Phaser.Physics.Arcade.Group;
   spells: Phaser.Physics.Arcade.Group;
+  characters: Phaser.Physics.Arcade.Group;
   cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
   keyboardKeys: any;
   playerHp: number = 100;
@@ -70,27 +71,23 @@ export class Game extends Scene {
     // Spells
     this.spells = this.physics.add.group();
 
+    // Characters group
+    this.characters = this.physics.add.group();
+    this.characters.add(this.player);
+
     // Physics
-    this.physics.add.collider(this.player, this.platforms);
-    this.physics.add.collider(this.enemies, this.platforms);
-    this.physics.add.overlap(
-      this.spells,
-      this.enemies,
-      (spell, enemy) => this.handleSpellCollision(spell, enemy),
-      undefined,
-      this
-    );
-    this.physics.add.overlap(
-      this.spells,
-      this.player,
-      (spell, player) => this.handleSpellCollision(spell, player),
-      undefined,
-      this
-    );
+    this.physics.add.collider(this.characters, this.platforms);
     this.physics.add.collider(
-      this.player,
-      this.enemies,
+      this.characters,
+      this.characters,
       this.handlePlayerEnemyCollision,
+      undefined,
+      this
+    );
+    this.physics.add.overlap(
+      this.spells,
+      this.characters,
+      this.handleSpellCollision,
       undefined,
       this
     );
@@ -226,6 +223,9 @@ export class Game extends Scene {
       );
       enemy.anims.play("left");
       enemy.hp = 100; // Add HP to the enemy
+      enemy.isEnemy = true; // Tag as an enemy
+
+      this.characters.add(enemy); // Add to the characters group
 
       this.time.addEvent({
         delay: Phaser.Math.Between(1500, 3000),
@@ -237,10 +237,10 @@ export class Game extends Scene {
   }
 
   enemyAttack(enemy: Phaser.Physics.Arcade.Sprite) {
-    // if (!enemy.active) return;
-    const spell = this.spells.create(enemy.x + 30, enemy.y - 30, "spell");
-    spell.setVelocityX(-300);
-    spell.setGravityY(1);
+    if (!enemy.active) return;
+    const spell = this.spells.create(enemy.x, enemy.y - 50, "spell");
+    spell.setVelocityX(-200);
+    spell.setGravityY(0);
     spell.owner = "enemy"; // Tag the spell as an enemy spell
   }
 
@@ -248,29 +248,17 @@ export class Game extends Scene {
     spell: Phaser.Physics.Arcade.Image,
     target: Phaser.Physics.Arcade.Sprite
   ) {
-    console.log(target == this.player);
-
-    if (spell.owner === "player" && this.enemies.contains(target)) {
-      console.log(target, "enemy hit");
-      target.hp -= 200; // Reduce enemy HP
+    if (spell.owner === "player" && target.isEnemy) {
+      target.hp -= 30; // Reduce enemy HP
       if (target.hp <= 0) {
         target.destroy(); // Destroy the enemy if HP is 0
       }
     } else if (spell.owner === "enemy" && target === this.player) {
-      console.log(target, "me hit");
       this.playerHp -= 10; // Reduce player HP
       this.updateHealthBar();
       this.evaluateGameOver();
     }
-    // spell.destroy(); // Destroy the spell after collision
-  }
-
-  evaluateGameOver() {
-    if (this.playerHp <= 0) {
-      this.scene.stop();
-      this.playerHp = 100;
-      this.scene.start("GameOver"); // End the game if HP is 0
-    }
+    spell.destroy(); // Destroy the spell after collision
   }
 
   handlePlayerEnemyCollision(
@@ -283,15 +271,8 @@ export class Game extends Scene {
     } else {
       player.setVelocityX(bounceBackVelocity); // Push right
     }
-  }
-
-  handlePlayerSpellCollision(
-    player: Phaser.Physics.Arcade.Sprite,
-    spell: Phaser.Physics.Arcade.Image
-  ) {
-    spell.destroy();
-    this.playerHp -= 10; // Reduce HP
-    this.updateHealthBar(); // Update the health bar
+    this.playerHp -= 5; // Reduce player HP on collision
+    this.updateHealthBar();
     this.evaluateGameOver();
   }
 
@@ -301,6 +282,14 @@ export class Game extends Scene {
     this.healthBar.fillRect(16, 16, this.playerHp * 2, 20); // Width proportional to HP
     this.healthBar.lineStyle(1, 0x000); // White border
     this.healthBar.strokeRect(16, 16, 200, 20); // Fixed border width
+  }
+
+  evaluateGameOver() {
+    if (this.playerHp <= 0) {
+      this.scene.stop();
+      this.playerHp = 100;
+      this.scene.start("GameOver"); // End the game if HP is 0
+    }
   }
 
   update() {
