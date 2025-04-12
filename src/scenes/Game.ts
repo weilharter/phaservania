@@ -198,18 +198,28 @@ export class Game extends Scene {
 
   castPlayerSpell() {
     if (!this.playerCanAttack) return;
+
     this.playerCanAttack = false;
-    const offsets = [-15, 0, 15, 30, 45]; // Y-offsets for the three projectiles
+
+    const direction = this.player.anims.currentAnim.key == "left" ? -1 : 1; // Determine direction (-1 for left, 1 for right)
+    const spellXOffset = direction * 20; // Offset the spell's starting position based on direction
+
+    const offsets = [-15, 0, 15]; // Y-offsets for the projectiles
     offsets.forEach((offset) => {
       const spell = this.spells.create(
-        this.player.x + 50,
+        this.player.x + spellXOffset, // Adjust starting X position
         this.player.y + offset,
         "spell"
       );
-      spell.setVelocityX(this.player.flipX ? -3000 : 3000);
-      spell.setVelocityY(offset * 10); // Slight vertical spread
-      spell.setGravityY(1);
+
+      spell.setVelocityX(direction * 2000); // Set velocity based on direction
+      spell.setGravityY(0); // No gravity for the spell
       spell.owner = "player"; // Tag the spell as a player spell
+
+      // cleanup spells
+      this.time.delayedCall(2000, () => {
+        spell.destroy();
+      });
     });
 
     this.time.delayedCall(PLAYER_GLOBAL_COOLDOWN, () => {
@@ -218,23 +228,44 @@ export class Game extends Scene {
   }
 
   spawnEnemies() {
-    if (this.enemies.countActive(true) < MAX_ENEMIES) {
-      const enemy = this.enemies.create(this.player.x + 400, 100, "dude");
-      enemy.setVelocityX(ENEMY_MOVEMENT_SPEED);
-      enemy.anims.play("left");
-      enemy.hp = 100; // Add HP to the enemy
-      enemy.isEnemy = true; // Tag as an enemy
-      enemy.setTint(0xff0000); // red tint
+    if (this.enemies.countActive(true) >= MAX_ENEMIES) return;
 
-      this.characters.add(enemy); // Add to the characters group
+    // Determine spawn side (left or right)
+    const spawnFromLeft = Phaser.Math.Between(0, 1) === 0;
 
-      this.time.addEvent({
-        delay: ENEMY_GLOBAL_COOLDOWN,
-        callback: () => this.enemyAttack(enemy),
-        callbackScope: this,
-        loop: true,
-      });
-    }
+    // Spawn position within world bounds
+    const spawnX = spawnFromLeft
+      ? Phaser.Math.Between(0, WORLD_BOUNDS_WIDTH / 2) // Left half of the world
+      : Phaser.Math.Between(WORLD_BOUNDS_WIDTH / 2, WORLD_BOUNDS_WIDTH); // Right half of the world
+    const spawnY = Phaser.Math.Between(100, HEIGHT - 100); // Random Y position within bounds
+
+    // Create the enemy
+    const enemy = this.enemies.create(spawnX, spawnY, "dude");
+    enemy.setVelocityX(
+      spawnFromLeft ? ENEMY_MOVEMENT_SPEED : -ENEMY_MOVEMENT_SPEED
+    ); // Move towards the center
+    enemy.setCollideWorldBounds(true); // Keep enemies within world bounds
+    enemy.anims.play("left");
+    enemy.hp = 100; // Add HP to the enemy
+    enemy.isEnemy = true; // Tag as an enemy
+    enemy.setTint(0xff0000); // Red tint for enemies
+
+    this.characters.add(enemy); // Add to the characters group
+
+    // Schedule the next enemy spawn
+    this.time.addEvent({
+      delay: Phaser.Math.Between(ENEMY_SPAWN_RATE, ENEMY_SPAWN_RATE * 2), // Randomize spawn delay
+      callback: this.spawnEnemies,
+      callbackScope: this,
+    });
+
+    // Enemy attack timer
+    this.time.addEvent({
+      delay: ENEMY_GLOBAL_COOLDOWN,
+      callback: () => this.enemyAttack(enemy),
+      callbackScope: this,
+      loop: true,
+    });
   }
 
   enemyAttack(enemy: Phaser.Physics.Arcade.Sprite) {
@@ -244,6 +275,10 @@ export class Game extends Scene {
     spell.setGravityY(0);
     spell.setTint(0xff0000); // red tint
     spell.owner = "enemy"; // Tag the spell as an enemy spell
+    // cleanup spells
+    this.time.delayedCall(2000, () => {
+      spell.destroy();
+    });
   }
 
   handleSpellCollision(
