@@ -43,9 +43,9 @@ export class Game extends Scene {
     this.load.image("sky", "assets/background/sky.png");
     this.load.image("ground", "assets/platform.png");
 
-    this.load.spritesheet("charmodel", "assets/charmodel.png", {
-      frameWidth: 32,
-      frameHeight: 48,
+    this.load.spritesheet("charmodel", "assets/char-idle.png", {
+      frameWidth: 19,
+      frameHeight: 34,
     });
     this.load.spritesheet("spell", "assets/projectiles.png", {
       frameWidth: 64,
@@ -77,7 +77,7 @@ export class Game extends Scene {
     this.cameras.main.setBounds(0, 0, WORLD_BOUNDS_WIDTH, HEIGHT);
 
     // Camera
-    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+    this.cameras.main.startFollow(this.player, true, 5, 5);
 
     // Platforms
     this.platforms = this.physics.add.group({
@@ -200,7 +200,7 @@ export class Game extends Scene {
         key: "left",
         frames: this.anims.generateFrameNumbers("charmodel", {
           start: 0,
-          end: 3,
+          end: 11,
         }),
         frameRate: 10,
         repeat: -1,
@@ -210,8 +210,12 @@ export class Game extends Scene {
     if (!this.anims.exists("front")) {
       this.anims.create({
         key: "front",
-        frames: [{ key: "charmodel", frame: 4 }],
-        frameRate: 20,
+        frames: this.anims.generateFrameNumbers("charmodel", {
+          start: 0,
+          end: 11,
+        }),
+        frameRate: 10,
+        repeat: -1,
       });
     }
 
@@ -219,8 +223,8 @@ export class Game extends Scene {
       this.anims.create({
         key: "right",
         frames: this.anims.generateFrameNumbers("charmodel", {
-          start: 5,
-          end: 8,
+          start: 0,
+          end: 11,
         }),
         frameRate: 10,
         repeat: -1,
@@ -385,20 +389,21 @@ export class Game extends Scene {
   }
 
   handlePlayerDamage(damage: number) {
+    // Make the player temporarily invincible
+    this.playerIsInvincible = true;
+
     this.playerHp -= damage; // Reduce player HP
     this.showDamageNumber(this.player.x, this.player.y, damage);
     this.updateHealthBar();
     this.evaluateGameOver();
 
-    // Make the player temporarily invincible
-    this.playerIsInvincible = true;
     this.tweens.add({
       targets: this.player,
       alpha: 0,
-      duration: 100,
+      duration: 50,
       ease: "Linear",
       yoyo: true,
-      repeat: 5, // Blink 5 times
+      repeat: 2, // Blink 5 times
       onComplete: () => {
         this.player.setAlpha(1); // Ensure player is fully visible after blinking
       },
@@ -521,13 +526,14 @@ export class Game extends Scene {
     levelUpEffect.setScale(2); // Scale the effect to fit the player
     levelUpEffect.setDepth(10); // Ensure it appears above other objects
     levelUpEffect.play("levelUpAnim"); // Play the level-up animation
-    this.isLevelUpEffectActive = true; // Flag to indicate the effect is active
 
     // Follow the player during the effect
     const followPlayer = this.time.addEvent({
       delay: 16, // Update every frame (~60 FPS)
       callback: () => {
         levelUpEffect.setPosition(this.player.x, this.player.y);
+        this.isLevelUpEffectActive = true; // Flag to indicate the effect is active
+        this.playerIsInvincible = true;
       },
       callbackScope: this,
       loop: true,
@@ -538,6 +544,7 @@ export class Game extends Scene {
       followPlayer.remove(false); // Stop following the player
       levelUpEffect.destroy(); // Remove the effect
       this.isLevelUpEffectActive = false; // Flag to indicate the effect is active
+      this.playerIsInvincible = false;
     });
   }
 
