@@ -381,7 +381,7 @@ export class Game extends Scene {
       .forEach((enemy: Phaser.Physics.Arcade.Sprite) => {
         if (enemy.active) {
           const distanceToPlayer = Math.abs(this.player.x - enemy.x);
-          if (distanceToPlayer < 200) {
+          if (distanceToPlayer < 160) {
             // Move away from the player if too close
             const directionX = this.player.x > enemy.x ? -1 : 1; // Move away from the player's X position
             enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
@@ -391,6 +391,10 @@ export class Game extends Scene {
             enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
           } else {
             enemy.setVelocityX(0); // Stop moving if within the desired range
+          }
+          // Make the enemy jump randomly
+          if (enemy.body?.touching.down && Phaser.Math.Between(0, 200) === 0) {
+            enemy.setVelocityY(Phaser.Math.Between(-200, -800));
           }
         }
       });
