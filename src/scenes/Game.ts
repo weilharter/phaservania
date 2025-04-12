@@ -15,9 +15,12 @@ const ENEMY_SPAWN_RATE = 500;
 const ENEMY_MOVEMENT_SPEED = 100;
 
 export class Game extends Scene {
+  level: number = 1;
+  levelXp: number = 0;
+  xpToNextLevel: number = 10000;
   player: Phaser.Physics.Arcade.Sprite;
   playerHp: number = 100;
-  playerIsInvincible: boolean = false; // New property for invincibility
+  playerIsInvincible: boolean = false;
   platforms: Phaser.Physics.Arcade.Group;
   enemies: Phaser.Physics.Arcade.Group;
   spells: Phaser.Physics.Arcade.Group;
@@ -25,8 +28,10 @@ export class Game extends Scene {
   cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
   keyboardKeys: any;
   healthBar: Phaser.GameObjects.Graphics;
-  playerCanAttack: boolean = true; // Cooldown flag for player attacks
-  attackKey: Phaser.Input.Keyboard.Key; // Key for attacking
+  experienceBar: Phaser.GameObjects.Graphics;
+  levelText: Phaser.GameObjects.Text;
+  playerCanAttack: boolean = true;
+  attackKey: Phaser.Input.Keyboard.Key;
 
   constructor() {
     super("Game");
@@ -36,13 +41,13 @@ export class Game extends Scene {
     this.load.image("sky", "assets/background/sky.png");
     this.load.image("ground", "assets/platform.png");
 
-    this.load.spritesheet("dude", "assets/dude.png", {
+    this.load.spritesheet("charmodel", "assets/charmodel.png", {
       frameWidth: 32,
       frameHeight: 48,
     });
     this.load.spritesheet("spell", "assets/projectiles.png", {
-      frameWidth: 63,
-      frameHeight: 63,
+      frameWidth: 64,
+      frameHeight: 64,
     });
   }
 
@@ -53,7 +58,7 @@ export class Game extends Scene {
       .setOrigin(0, 0);
 
     // Player
-    this.player = this.physics.add.sprite(100, 400, "dude");
+    this.player = this.physics.add.sprite(100, 400, "charmodel");
     this.player.setCollideWorldBounds(true);
     this.player.setGravityY(PLAYER_GRAVITY_Y);
 
@@ -115,6 +120,21 @@ export class Game extends Scene {
     this.healthBar.setScrollFactor(0); // Make the health bar position absolute
     this.updateHealthBar();
 
+    // Create the experience bar
+    this.experienceBar = this.add.graphics();
+    this.experienceBar.setScrollFactor(0); // Make the experience bar position absolute
+    this.updateExperienceBar();
+
+    // Create the level and XP text
+    this.levelText = this.add.text(16, 60, "", {
+      font: "16px Arial",
+      color: "#ffffff",
+      stroke: "#000000",
+      strokeThickness: 2,
+    });
+    this.levelText.setScrollFactor(0); // Make the text position absolute
+    this.updateLevelText();
+
     // Enemy spawn timer
     this.time.addEvent({
       delay: ENEMY_SPAWN_RATE, // Spawn an enemy every ENEMY_SPAWN_RATE milliseconds
@@ -144,7 +164,10 @@ export class Game extends Scene {
     if (!this.anims.exists("left")) {
       this.anims.create({
         key: "left",
-        frames: this.anims.generateFrameNumbers("dude", { start: 0, end: 3 }),
+        frames: this.anims.generateFrameNumbers("charmodel", {
+          start: 0,
+          end: 3,
+        }),
         frameRate: 10,
         repeat: -1,
       });
@@ -153,7 +176,7 @@ export class Game extends Scene {
     if (!this.anims.exists("front")) {
       this.anims.create({
         key: "front",
-        frames: [{ key: "dude", frame: 4 }],
+        frames: [{ key: "charmodel", frame: 4 }],
         frameRate: 20,
       });
     }
@@ -161,7 +184,10 @@ export class Game extends Scene {
     if (!this.anims.exists("right")) {
       this.anims.create({
         key: "right",
-        frames: this.anims.generateFrameNumbers("dude", { start: 5, end: 8 }),
+        frames: this.anims.generateFrameNumbers("charmodel", {
+          start: 5,
+          end: 8,
+        }),
         frameRate: 10,
         repeat: -1,
       });
@@ -215,7 +241,7 @@ export class Game extends Scene {
     const spellXOffset = direction * 25; // Offset the spell's starting position based on direction
 
     // Y-offsets for multiple projectiles (optional)
-    const offsets = [-60, -70, -80]; // Adjust as needed for spread
+    const offsets = Array.from({ length: this.level }, (_, i) => -60 - i * 10); // Generate offsets based on level
 
     offsets.forEach((offset) => {
       // Create the spell
@@ -236,7 +262,7 @@ export class Game extends Scene {
       spell.owner = "player"; // Tag the spell as a player spell
 
       // Destroy the spell after 3 seconds
-      this.time.delayedCall(3000, () => {
+      this.time.delayedCall(2000, () => {
         if (spell.active) spell.destroy();
       });
     });
@@ -264,7 +290,7 @@ export class Game extends Scene {
     const spawnY = PLATFORM_VERTICAL_POSITION - 50; // Spawn above the platform
 
     // Create the enemy
-    const enemy = this.enemies.create(spawnX, spawnY, "dude");
+    const enemy = this.enemies.create(spawnX, spawnY, "charmodel");
     enemy.setCollideWorldBounds(true); // Keep enemies within world bounds
     enemy.anims.play("front");
     enemy.hp = 100; // Add HP to the enemy
@@ -324,6 +350,7 @@ export class Game extends Scene {
       this.showDamageNumber(target.x, target.y, damage); // Show damage number
       if (target.hp <= 0) {
         target.destroy(); // Destroy the enemy if HP is 0
+        this.gainExperience(1000); // Gain 1000 XP for killing an enemy
       }
       spell.destroy();
     } else if (spell.owner === "enemy" && target === this.player) {
@@ -363,7 +390,7 @@ export class Game extends Scene {
       return Phaser.Math.Between(5, 10);
     } else if (character.isEnemy) {
       // Damage range for the player hitting enemies
-      return Phaser.Math.Between(13, 50);
+      return Phaser.Math.Between(100, 200);
     }
     return 0; // Default damage if character type is unknown
   }
@@ -399,8 +426,37 @@ export class Game extends Scene {
     this.healthBar.clear();
     this.healthBar.fillStyle(0xff0000, 1); // Red color for health
     this.healthBar.fillRect(16, 16, this.playerHp * 2, 20); // Width proportional to HP
-    this.healthBar.lineStyle(1, 0x000); // White border
+    this.healthBar.lineStyle(1, 0x000); // Black border
     this.healthBar.strokeRect(16, 16, 200, 20); // Fixed border width
+  }
+
+  updateExperienceBar() {
+    this.experienceBar.clear();
+    this.experienceBar.fillStyle(0x00ff00, 1); // Green color for experience
+
+    // Correctly calculate the width of the experience bar
+    const xpWidth = Math.min(200 * (this.levelXp / this.xpToNextLevel), 200); // Ensure it doesn't exceed 200
+    this.experienceBar.fillRect(16, 40, xpWidth, 10); // Width proportional to XP
+    this.experienceBar.lineStyle(1, 0x000); // Black border
+    this.experienceBar.strokeRect(16, 40, 200, 10); // Fixed border width
+  }
+
+  updateLevelText() {
+    this.levelText.setText(
+      `Level: ${this.level}\nXP: ${this.levelXp} / ${this.xpToNextLevel}`
+    );
+  }
+
+  gainExperience(amount: number) {
+    this.levelXp += amount;
+    if (this.levelXp >= this.xpToNextLevel) {
+      this.levelXp -= this.xpToNextLevel;
+      this.level++;
+      this.playerHp = 100;
+      this.xpToNextLevel += 5000; // Increase XP required for the next level
+    }
+    this.updateExperienceBar();
+    this.updateLevelText(); // Update the text whenever XP changes
   }
 
   evaluateGameOver() {
