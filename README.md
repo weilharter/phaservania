@@ -18,6 +18,12 @@ This template has been updated for:
 
 [Node.js](https://nodejs.org) is required to install dependencies and run scripts via `npm`.
 
+## Deploy to Github Pages
+
+``` 
+git subtree push --prefix dist origin gh-pages
+```
+
 ## Available Commands
 
 | Command | Description |
