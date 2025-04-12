@@ -8,6 +8,8 @@ const PLAYER_GRAVITY_Y = 2000;
 const PLAYER_JUMP_VELOCITY_Y = -900;
 const PLAYER_MOVEMENT_SPEED = 300;
 
+const MAX_ENEMIES = 3;
+const ENEMY_SPAWN_RATE = 1000;
 const ENEMY_MOVEMENT_SPEED = 200;
 const ENEMY_SPAWN_DISTANCE = 600;
 
@@ -15,8 +17,6 @@ export class Game extends Scene {
   player: Phaser.Physics.Arcade.Sprite;
   platforms: Phaser.Physics.Arcade.Group;
   enemies: Phaser.Physics.Arcade.Group;
-  lastPlatformX = 0;
-  lastEnemySpawnX = 0;
   cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
   keyboardKeys: any;
   playerHp: number = 100;
@@ -58,17 +58,7 @@ export class Game extends Scene {
       immovable: true,
       allowGravity: false,
     });
-    for (let i = 0; i < 5; i++) {
-      const platform = this.platforms
-        .create(
-          i * 400,
-          PLATFORM_VERTICAL_POSITION + Phaser.Math.Between(-10, 10),
-          "ground"
-        )
-        .setScale(1)
-        .refreshBody();
-      this.lastPlatformX = platform.x;
-    }
+    this.createPlatforms();
 
     // Enemies
     this.enemies = this.physics.add.group();
@@ -102,6 +92,30 @@ export class Game extends Scene {
     this.healthBar = this.add.graphics();
     this.healthBar.setScrollFactor(0); // Make the health bar position absolute
     this.updateHealthBar();
+
+    // Enemy spawn timer
+    this.time.addEvent({
+      delay: ENEMY_SPAWN_RATE, // Spawn an enemy every ENEMY_SPAWN_RATE milliseconds
+      callback: this.spawnEnemies,
+      callbackScope: this,
+      loop: true, // Keep spawning enemies
+    });
+  }
+
+  createPlatforms() {
+    const platformWidth = 400; // Width of each platform
+    const numPlatforms = Math.ceil(WORLD_BOUNDS_WIDTH / platformWidth) + 1; // Calculate how many platforms are needed
+
+    for (let i = 0; i < numPlatforms; i++) {
+      this.platforms
+        .create(
+          i * platformWidth,
+          PLATFORM_VERTICAL_POSITION + Phaser.Math.Between(-10, 10),
+          "ground"
+        )
+        .setScale(1)
+        .refreshBody();
+    }
   }
 
   createAnimations() {
@@ -157,42 +171,17 @@ export class Game extends Scene {
     }
   }
 
-  recyclePlatforms() {
-    this.platforms.children.iterate((plat: Phaser.GameObjects.GameObject) => {
-      const platform = plat as Phaser.Physics.Arcade.Sprite;
-      if (platform.x + platform.width < this.player.x - 400) {
-        platform.x = this.lastPlatformX + 400;
-        platform.y = PLATFORM_VERTICAL_POSITION + Phaser.Math.Between(-5, 5);
-        platform.body?.updateFromGameObject();
-        this.lastPlatformX = platform.x;
-      }
-      return null;
-    });
-  }
-
   spawnEnemies() {
-    if (this.player.x > this.lastEnemySpawnX + ENEMY_SPAWN_DISTANCE) {
+    // Check if the number of active enemies is less than MAX_ENEMIES
+    if (this.enemies.countActive(true) < MAX_ENEMIES) {
       const enemy = this.enemies.create(this.player.x + 400, 200, "dude");
-      enemy.setBounce(0.2);
+      enemy.setBounce(0.1);
       enemy.setCollideWorldBounds(true);
-      enemy.setVelocityX(-200);
+      enemy.setVelocityX(
+        Phaser.Math.Between(-ENEMY_MOVEMENT_SPEED, ENEMY_MOVEMENT_SPEED)
+      );
       enemy.anims.play("left"); // Default animation
-      this.lastEnemySpawnX = this.player.x;
     }
-
-    // Enemy movement logic
-    this.enemies.children.iterate((enemy: Phaser.GameObjects.GameObject) => {
-      const enemySprite = enemy as Phaser.Physics.Arcade.Sprite;
-      enemySprite.setTintFill(0x000);
-      enemySprite.setAlpha(1); // 50% opacity
-      if (!enemySprite.body) return null;
-      if (enemySprite.body.velocity.x < 0) {
-        enemySprite.anims.play("left", true);
-      } else if (enemySprite.body.velocity.x > 0) {
-        enemySprite.anims.play("right", true);
-      }
-      return null;
-    });
   }
 
   handlePlayerEnemyCollision(
@@ -226,7 +215,5 @@ export class Game extends Scene {
 
   update() {
     this.handleMovement();
-    this.recyclePlatforms();
-    this.spawnEnemies();
   }
 }
