@@ -39,10 +39,10 @@ export class GameOver extends Scene {
     );
     this.gameover_text.setOrigin(0.5);
 
-    const enterKey = this.input.keyboard?.addKey(
-      Phaser.Input.Keyboard.KeyCodes.ENTER
+    const spaceKey = this.input.keyboard?.addKey(
+      Phaser.Input.Keyboard.KeyCodes.SPACE
     );
-    enterKey?.once("down", () => {
+    spaceKey?.once("down", () => {
       this.scene.start("MainMenu");
     });
   }

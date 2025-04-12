@@ -1,52 +1,110 @@
 import { Scene } from "phaser";
+import { HEIGHT, WIDTH } from "../main";
 
-const MAX_BOMBS = 5;
-const VELOCITY_X = 800;
+const PLATFORM_VERTICAL_POSITION = 550;
+const WORLD_BOUNDS_WIDTH = 2000;
+
+const PLAYER_GRAVITY_Y = 2000;
+const PLAYER_JUMP_VELOCITY_Y = -900;
+const PLAYER_MOVEMENT_SPEED = 300;
+
+const MAX_ENEMIES = 5;
 
 export class Game extends Scene {
   player: Phaser.Physics.Arcade.Sprite;
-  playerHealth: number = 100;
-  stars: Phaser.Physics.Arcade.Group;
-  bombs: Phaser.Physics.Arcade.Group;
-  platforms: Phaser.Physics.Arcade.StaticGroup;
-  cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
-  spaceKey: Phaser.Input.Keyboard.Key;
-  score: number = 0;
-  gameOver: boolean = false;
-  scoreText: Phaser.GameObjects.Text;
-  hpText: Phaser.GameObjects.Text;
+  platforms: Phaser.Physics.Arcade.Group;
+  enemies: Phaser.Physics.Arcade.Group;
+  lastPlatformX = 0;
+  lastEnemySpawnX = 0;
+  cursors: Phaser.Types.Input.Keyboard.CursorKeys;
+  farBuildings: Phaser.GameObjects.TileSprite;
+  buildings: Phaser.GameObjects.TileSprite;
+  foreground: Phaser.GameObjects.TileSprite;
 
   constructor() {
     super("Game");
   }
 
   preload() {
-    this.load.image("sky", "assets/sky.png");
     this.load.image("ground", "assets/platform.png");
-    this.load.image("star", "assets/star.png");
-    this.load.image("bomb", "assets/bomb.png");
+    this.load.image("enemy", "assets/bomb.png");
     this.load.spritesheet("dude", "assets/dude.png", {
       frameWidth: 32,
       frameHeight: 48,
     });
+    this.load.image("sky", "assets/background/sky.png");
+    // this.load.image("far-buildings", "assets/background/far-buildings.png");
+    // this.load.image("buildings", "assets/background/buildings.png");
+    // this.load.image("foreground", "assets/background/foreground.png");
   }
 
   create() {
-    // Background
-    this.add.image(400, 300, "sky");
-
-    // Platforms
-    this.platforms = this.physics.add.staticGroup();
-    this.platforms.create(400, 568, "ground").setScale(2).refreshBody();
-    // this.platforms.create(600, 400, "ground");
-    // this.platforms.create(50, 250, "ground");
-    // this.platforms.create(750, 220, "ground");
+    this.add
+      .tileSprite(0, 0, WORLD_BOUNDS_WIDTH, HEIGHT, "sky")
+      .setOrigin(0, 0);
+    // // Parallax Background Layers
+    // this.add
+    //   .tileSprite(0, 0, 500, HEIGHT, "bg")
+    //   .setOrigin(0, 0)
+    //   .setScale(5)
+    //   .setScrollFactor(0); // Farthest background
+    // this.farBuildings = this.add
+    //   .tileSprite(0, 0, 500, HEIGHT, "far-buildings")
+    //   .setOrigin(0, 0)
+    //   .setScale(5)
+    //   .setScrollFactor(0);
+    // this.buildings = this.add
+    //   .tileSprite(0, 0, 500, HEIGHT, "buildings")
+    //   .setOrigin(0, 0)
+    //   .setScale(5)
+    //   .setScrollFactor(0);
+    // this.foreground = this.add
+    //   .tileSprite(0, 0, 500, HEIGHT, "foreground")
+    //   .setOrigin(0, 0)
+    //   .setScale(5)
+    //   .setScrollFactor(0);
 
     // Player
     this.player = this.physics.add.sprite(100, 450, "dude");
     this.player.setCollideWorldBounds(true);
+    this.player.setGravityY(PLAYER_GRAVITY_Y);
 
-    // Player animations
+    // Expand world bounds
+    this.physics.world.setBounds(0, 0, WORLD_BOUNDS_WIDTH, HEIGHT);
+    this.cameras.main.setBounds(0, 0, WORLD_BOUNDS_WIDTH, HEIGHT);
+
+    // Kamera
+    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+    this.cameras.main.setLerp(1, 0);
+
+    // Plattformen
+    this.platforms = this.physics.add.group({
+      immovable: true,
+      allowGravity: false,
+    });
+    for (let i = 0; i < 5; i++) {
+      const platform = this.platforms
+        .create(
+          i * 400,
+          PLATFORM_VERTICAL_POSITION + Phaser.Math.Between(-10, 10),
+          "ground"
+        )
+        .setScale(1)
+        .refreshBody();
+      this.lastPlatformX = platform.x;
+    }
+
+    // Gegner
+    this.enemies = this.physics.add.group();
+
+    // Physik
+    this.physics.add.collider(this.player, this.platforms);
+    this.physics.add.collider(this.enemies, this.platforms);
+    this.physics.add.overlap(this.player, this.enemies, () =>
+      this.scene.start("GameOver")
+    );
+
+    // 🎞️ Animations
     if (!this.anims.exists("left")) {
       this.anims.create({
         key: "left",
@@ -73,161 +131,58 @@ export class Game extends Scene {
       });
     }
 
-    if (!this.input.keyboard) {
-      throw new Error("Keyboard input not available");
-    }
+    this.player.anims.play("front");
 
-    this.cursorKeys = this.input.keyboard.createCursorKeys();
-    this.spaceKey = this.input.keyboard.addKey(
-      Phaser.Input.Keyboard.KeyCodes.SPACE
-    );
-
-    // Stars
-    this.stars = this.physics.add.group({
-      key: "star",
-      repeat: 11,
-      bounceY: 0.2,
-      setXY: { x: 12, y: 0, stepX: 70 },
-    });
-
-    // Bombs
-    this.bombs = this.physics.add.group();
-    for (let i = 0; i < 4; i++) {
-      const x =
-        this.player.x < 400
-          ? Phaser.Math.Between(400, 800)
-          : Phaser.Math.Between(0, 400);
-
-      const bomb = this.bombs.create(x, 16, "bomb");
-      bomb.setBounce(1);
-      bomb.setCollideWorldBounds(false);
-      bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
-      bomb.allowGravity = true;
-      bomb.body.onWorldBounds = true;
-    }
-
-    // Create a container for the UI
-    this.scoreText = this.add.text(0, 3, "Score: 0", {
-      fontSize: "32px",
-      stroke: "black",
-    });
-    this.hpText = this.add.text(0, 35, "HP: 100", {
-      fontSize: "32px",
-      stroke: "black",
-    });
-
-    // Colliders
-    this.physics.add.collider(this.player, this.platforms);
-    this.physics.add.collider(this.stars, this.platforms);
-    this.physics.add.collider(this.bombs, this.platforms);
-    this.physics.add.overlap(
-      this.player,
-      this.stars,
-      (player, star) =>
-        this.collectStar(
-          player as Phaser.GameObjects.GameObject,
-          star as Phaser.GameObjects.GameObject
-        ),
-      undefined,
-      this
-    );
-    this.physics.add.collider(
-      this.player,
-      this.bombs,
-      (player, bomb) =>
-        this.hitBomb(
-          player as Phaser.GameObjects.GameObject,
-          bomb as Phaser.GameObjects.GameObject
-        ),
-      undefined,
-      this
-    );
+    // Input
+    this.cursors = this.input.keyboard.createCursorKeys();
   }
 
   update() {
-    if (this.gameOver) {
-      this.scene.start("GameOver", { score: this.score });
-      this.scene.stop();
-      this.gameOver = false;
-      return;
-    }
-
-    this.hpText.setText("HP: " + this.playerHealth);
-
-    if (this.cursorKeys.left.isDown) {
-      this.player.setVelocityX(-VELOCITY_X);
+    // Player movement
+    const speed = PLAYER_MOVEMENT_SPEED;
+    if (this.cursors.left.isDown) {
+      this.player.setVelocityX(-speed);
       this.player.anims.play("left", true);
-    } else if (this.cursorKeys.right.isDown) {
-      this.player.setVelocityX(VELOCITY_X);
+    } else if (this.cursors.right.isDown) {
+      this.player.setVelocityX(speed);
       this.player.anims.play("right", true);
     } else {
       this.player.setVelocityX(0);
       this.player.anims.play("front");
     }
 
+    // Jumping
     if (
-      (this.cursorKeys.up.isDown || this.spaceKey.isDown) &&
+      (this.cursors.space?.isDown || this.cursors.up?.isDown) &&
       this.player.body?.touching.down
     ) {
-      this.player.setVelocityY(-900);
+      this.player.setVelocityY(PLAYER_JUMP_VELOCITY_Y);
     }
-  }
 
-  collectStar(
-    _player: Phaser.GameObjects.GameObject,
-    star: Phaser.GameObjects.GameObject
-  ) {
-    const starBody = star as Phaser.Physics.Arcade.Image;
-    starBody.disableBody(true, true);
+    // Parallax Scrolling
+    // this.farBuildings.tilePositionX = this.cameras.main.scrollX * 0.2; // Slowest layer
+    // this.buildings.tilePositionX = this.cameras.main.scrollX * 0.5; // Medium speed
+    // this.foreground.tilePositionX = this.cameras.main.scrollX * 0.8; // Fastest layer
 
-    // Update score
-    this.score += 10;
-    this.scoreText.setText("Score: " + this.score);
-
-    if (this.stars.countActive(true) === 0) {
-      this.stars.children.iterate((child: Phaser.GameObjects.GameObject) => {
-        const star = child as Phaser.Physics.Arcade.Image;
-        star.enableBody(true, star.x, 0, true, true);
-        return null;
-      });
-
-      if (this.bombs.countActive(true) < MAX_BOMBS) {
-        for (let i = 0; i < 5; i++) {
-          const x =
-            this.player.x < 400
-              ? Phaser.Math.Between(400, 800)
-              : Phaser.Math.Between(0, 400);
-
-          const bomb = this.bombs.create(x, 16, "bomb");
-          bomb.setBounce(1);
-          bomb.setCollideWorldBounds(false);
-          bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
-          bomb.allowGravity = true;
-          bomb.body.onWorldBounds = true;
-        }
+    // Recycle platforms
+    this.platforms.children.iterate((plat: Phaser.GameObjects.GameObject) => {
+      const platform = plat as Phaser.Physics.Arcade.Sprite;
+      if (platform.x + platform.width < this.player.x - 400) {
+        platform.x = this.lastPlatformX + 400;
+        platform.y = PLATFORM_VERTICAL_POSITION + Phaser.Math.Between(-5, 5);
+        // platform.y = PLATFORM_VERTICAL_POSITION + Phaser.Math.Between(-50, 50);
+        platform.body.updateFromGameObject();
+        this.lastPlatformX = platform.x;
       }
-    }
-  }
-
-  hitBomb(
-    player: Phaser.GameObjects.GameObject,
-    _bomb: Phaser.GameObjects.GameObject
-  ) {
-    this.playerHealth -= 5;
-    const playerBody = player as Phaser.Physics.Arcade.Sprite;
-
-    // Set tint to red
-    playerBody.setTint(0xff0000);
-    playerBody.anims.play("front");
-
-    // Create a timer to clear the tint after 0.5 seconds
-    this.time.delayedCall(100, () => {
-      playerBody.clearTint();
     });
 
-    if (this.playerHealth <= 0) {
-      this.physics.pause();
-      this.gameOver = true;
+    // Gegner spawnen
+    if (this.player.x > this.lastEnemySpawnX + 600) {
+      const enemy = this.enemies.create(this.player.x + 400, 200, "enemy");
+      enemy.setBounce(1);
+      enemy.setCollideWorldBounds(true);
+      enemy.setVelocityX(-100);
+      this.lastEnemySpawnX = this.player.x;
     }
   }
 }
