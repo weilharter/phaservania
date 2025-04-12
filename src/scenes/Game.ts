@@ -1,21 +1,21 @@
 import { Scene } from "phaser";
 import { HEIGHT, WIDTH } from "../main";
 
-const PLATFORM_VERTICAL_POSITION = 550;
+const PLATFORM_VERTICAL_POSITION = 315;
 const WORLD_BOUNDS_WIDTH = 2000;
 
 const PLAYER_GLOBAL_COOLDOWN = 500;
 const PLAYER_GRAVITY_Y = 2000;
-const PLAYER_JUMP_VELOCITY_Y = -900;
-const PLAYER_MOVEMENT_SPEED = 500;
+const PLAYER_JUMP_VELOCITY_Y = -450; // Adjusted for smaller height
+const PLAYER_MOVEMENT_SPEED = 200; // Adjusted for smaller width
 
-const MAX_ENEMIES = 50;
+const MAX_ENEMIES = 20; // Reduced due to smaller world size
 const ENEMY_GLOBAL_COOLDOWN = 1000;
 const ENEMY_SPAWN_RATE = 250;
-const ENEMY_MOVEMENT_SPEED = 100;
+const ENEMY_MOVEMENT_SPEED = 50; // Adjusted for smaller world
 
 export class Game extends Scene {
-  level: number = 10;
+  level: number = 3;
   levelXp: number = 0;
   xpToNextLevel: number = 10000;
   player: Phaser.Physics.Arcade.Sprite;
@@ -49,6 +49,10 @@ export class Game extends Scene {
       frameWidth: 64,
       frameHeight: 64,
     });
+    this.load.spritesheet("levelUpEffect", "assets/projectiles.png", {
+      frameWidth: 64,
+      frameHeight: 64,
+    });
   }
 
   create() {
@@ -58,7 +62,11 @@ export class Game extends Scene {
       .setOrigin(0, 0);
 
     // Player
-    this.player = this.physics.add.sprite(100, 400, "charmodel");
+    this.player = this.physics.add.sprite(
+      WORLD_BOUNDS_WIDTH / 2,
+      HEIGHT / 2,
+      "charmodel"
+    );
     this.player.setCollideWorldBounds(true);
     this.player.setGravityY(PLAYER_GRAVITY_Y);
 
@@ -141,11 +149,11 @@ export class Game extends Scene {
     this.updateExperienceBar();
 
     // Create the level and XP text
-    this.levelText = this.add.text(16, 60, "", {
+    this.levelText = this.add.text(24, 60, "", {
       font: "16px Arial",
       color: "#ffffff",
       stroke: "#000000",
-      strokeThickness: 2,
+      strokeThickness: 1,
     });
     this.levelText.setScrollFactor(0); // Make the text position absolute
     this.updateLevelText();
@@ -160,14 +168,14 @@ export class Game extends Scene {
   }
 
   createPlatforms() {
-    const platformWidth = 400; // Width of each platform
+    const platformWidth = 200; // Adjusted for smaller world
     const numPlatforms = Math.ceil(WORLD_BOUNDS_WIDTH / platformWidth) + 1; // Calculate how many platforms are needed
 
     for (let i = 0; i < numPlatforms; i++) {
       this.platforms
         .create(
           i * platformWidth,
-          PLATFORM_VERTICAL_POSITION + Phaser.Math.Between(-10, 10),
+          PLATFORM_VERTICAL_POSITION, // Adjusted for smaller height
           "ground"
         )
         .setScale(1)
@@ -214,6 +222,19 @@ export class Game extends Scene {
         key: "spellAnim",
         frames: this.anims.generateFrameNumbers("spell", { start: 3, end: 5 }),
         frameRate: 15,
+      });
+    }
+
+    // Add the level-up animation (placeholder)
+    if (!this.anims.exists("levelUpAnim")) {
+      this.anims.create({
+        key: "levelUpAnim",
+        frames: this.anims.generateFrameNumbers("levelUpEffect", {
+          start: 0,
+          end: 9,
+        }),
+        frameRate: 15,
+        repeat: -1, // Loop the animation
       });
     }
 
@@ -301,15 +322,15 @@ export class Game extends Scene {
       spawnX = spawnFromLeft
         ? Phaser.Math.Between(0, WORLD_BOUNDS_WIDTH / 2) // Left half of the world
         : Phaser.Math.Between(WORLD_BOUNDS_WIDTH / 2, WORLD_BOUNDS_WIDTH); // Right half of the world
-    } while (Math.abs(spawnX - this.player.x) < 450); // Ensure enemy spawns at least 450px away from the player
+    } while (Math.abs(spawnX - this.player.x) < 100); // Ensure enemy spawns at least 100px away from the player
 
-    const spawnY = PLATFORM_VERTICAL_POSITION - 50; // Spawn above the platform
+    const spawnY = PLATFORM_VERTICAL_POSITION - 40; // Spawn above the platform
 
     // Create the enemy
     const enemy = this.enemies.create(spawnX, spawnY, "charmodel");
     enemy.setCollideWorldBounds(true); // Keep enemies within world bounds
     enemy.anims.play("front");
-    enemy.hp = 100; // Add HP to the enemy
+    enemy.hp = 50; // Adjusted HP for smaller world
     enemy.isEnemy = true; // Tag as an enemy
     enemy.setTint(0xff0000); // Red tint for enemies
 
@@ -443,9 +464,9 @@ export class Game extends Scene {
   updateHealthBar() {
     this.healthBar.clear();
     this.healthBar.fillStyle(0xff0000, 1); // Red color for health
-    this.healthBar.fillRect(16, 16, this.playerHp * 2, 20); // Width proportional to HP
+    this.healthBar.fillRect(8, 8, this.playerHp * 0.8, 5); // Adjusted width and height
     this.healthBar.lineStyle(1, 0x000); // Black border
-    this.healthBar.strokeRect(16, 16, 200, 20); // Fixed border width
+    this.healthBar.strokeRect(8, 8, 80, 5); // Adjusted fixed border width
   }
 
   updateExperienceBar() {
@@ -453,16 +474,18 @@ export class Game extends Scene {
     this.experienceBar.fillStyle(0x00ff00, 1); // Green color for experience
 
     // Correctly calculate the width of the experience bar
-    const xpWidth = Math.min(200 * (this.levelXp / this.xpToNextLevel), 200); // Ensure it doesn't exceed 200
-    this.experienceBar.fillRect(16, 40, xpWidth, 10); // Width proportional to XP
+    const xpWidth = Math.min(80 * (this.levelXp / this.xpToNextLevel), 80); // Adjusted width
+    this.experienceBar.fillRect(8, 16, xpWidth, 3); // Adjusted position and height
     this.experienceBar.lineStyle(1, 0x000); // Black border
-    this.experienceBar.strokeRect(16, 40, 200, 10); // Fixed border width
+    this.experienceBar.strokeRect(8, 16, 80, 3); // Adjusted fixed border width
   }
 
   updateLevelText() {
     this.levelText.setText(
       `Level: ${this.level}\nXP: ${this.levelXp} / ${this.xpToNextLevel}`
     );
+    this.levelText.setFontSize(8); // Adjusted font size
+    this.levelText.setPosition(8, 24); // Adjusted position
   }
 
   gainExperience(amount: number) {
@@ -470,11 +493,42 @@ export class Game extends Scene {
     if (this.levelXp >= this.xpToNextLevel) {
       this.levelXp -= this.xpToNextLevel;
       this.level++;
-      this.playerHp = 100;
+      this.playerHp = 100; // Restore player HP on level-up
       this.xpToNextLevel += 5000; // Increase XP required for the next level
+
+      // Trigger level-up effect
+      this.triggerLevelUpEffect();
     }
     this.updateExperienceBar();
     this.updateLevelText(); // Update the text whenever XP changes
+  }
+
+  triggerLevelUpEffect() {
+    // Add a shiny overlay sprite
+    const levelUpEffect = this.add.sprite(
+      this.player.x,
+      this.player.y,
+      "levelUpEffect"
+    );
+    levelUpEffect.setScale(2); // Scale the effect to fit the player
+    levelUpEffect.setDepth(10); // Ensure it appears above other objects
+    levelUpEffect.play("levelUpAnim"); // Play the level-up animation
+
+    // Follow the player during the effect
+    const followPlayer = this.time.addEvent({
+      delay: 16, // Update every frame (~60 FPS)
+      callback: () => {
+        levelUpEffect.setPosition(this.player.x, this.player.y);
+      },
+      callbackScope: this,
+      loop: true,
+    });
+
+    // Destroy the effect after 1 second
+    this.time.delayedCall(1000, () => {
+      followPlayer.remove(false); // Stop following the player
+      levelUpEffect.destroy(); // Remove the effect
+    });
   }
 
   evaluateGameOver() {
