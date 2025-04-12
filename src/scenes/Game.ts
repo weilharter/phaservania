@@ -21,7 +21,7 @@ export class Game extends Scene {
   xpToNextLevel: number = 2000;
   isLevelUpEffectActive: boolean = false;
   player: Phaser.Physics.Arcade.Sprite;
-  playerHp: number = 100;
+  hp: number = 100;
   playerIsInvincible: boolean = false;
   platforms: Phaser.Physics.Arcade.Group;
   enemies: Phaser.Physics.Arcade.Group;
@@ -42,6 +42,10 @@ export class Game extends Scene {
   preload() {
     this.load.image("sky", "assets/background/sky.png");
     this.load.image("ground", "assets/platform.png");
+    this.load.audio("tap", "assets/audio/tap.wav");
+    this.load.audio("music", "assets/audio/music.wav");
+    this.load.audio("lightning-shield", "assets/audio/lightning-shield.wav");
+    this.load.audio("jump", "assets/audio/jump.wav");
 
     this.load.spritesheet("charmodel", "assets/char-idle.png", {
       frameWidth: 19,
@@ -62,6 +66,13 @@ export class Game extends Scene {
     this.add
       .tileSprite(0, 0, WORLD_BOUNDS_WIDTH, HEIGHT, "sky")
       .setOrigin(0, 0);
+
+    // Play background music
+    const backgroundMusic = this.sound.add("music", {
+      loop: true,
+      volume: 1,
+    });
+    backgroundMusic.play();
 
     // Player
     this.player = this.physics.add.sprite(
@@ -293,6 +304,7 @@ export class Game extends Scene {
           this.keyboardKeys.W.isDown) &&
         this.player.body?.touching.down
       ) {
+        this.sound.play("jump", { volume: 0.2 });
         this.player.setVelocityY(PLAYER_JUMP_VELOCITY_Y);
       }
     }
@@ -430,7 +442,9 @@ export class Game extends Scene {
     // Make the player temporarily invincible
     this.playerIsInvincible = true;
 
-    this.playerHp -= damage; // Reduce player HP
+    this.sound.play("tap");
+
+    this.hp -= damage; // Reduce player HP
     this.showDamageNumber(this.player.x, this.player.y, damage);
     this.updateHealthBar();
     this.evaluateGameOver();
@@ -522,7 +536,7 @@ export class Game extends Scene {
   updateHealthBar() {
     this.healthBar.clear();
     this.healthBar.fillStyle(0xff0000, 1); // Red color for health
-    this.healthBar.fillRect(8, 8, this.playerHp * 0.8, 5); // Adjusted width and height
+    this.healthBar.fillRect(8, 8, this.hp * 0.8, 5); // Adjusted width and height
     this.healthBar.lineStyle(1, 0x000); // Black border
     this.healthBar.strokeRect(8, 8, 80, 5); // Adjusted fixed border width
   }
@@ -551,7 +565,7 @@ export class Game extends Scene {
     if (this.levelXp >= this.xpToNextLevel) {
       this.levelXp -= this.xpToNextLevel;
       this.level++;
-      this.playerHp = 100; // Restore player HP on level-up
+      this.hp = 100; // Restore player HP on level-up
       this.xpToNextLevel += 5000; // Increase XP required for the next level
 
       // Trigger level-up effect
@@ -562,6 +576,7 @@ export class Game extends Scene {
   }
 
   triggerLevelUpEffect() {
+    if (this.isLevelUpEffectActive) return; // Prevent multiple effects
     // Add a shiny overlay sprite
     const levelUpEffect = this.add.sprite(
       this.player.x,
@@ -572,6 +587,7 @@ export class Game extends Scene {
     levelUpEffect.setDepth(10); // Ensure it appears above other objects
     levelUpEffect.play("levelUpAnim"); // Play the level-up animation
 
+    this.sound.play("lightning-shield", { volume: 1, loop: true });
     // Follow the player during the effect
     const followPlayer = this.time.addEvent({
       delay: 16, // Update every frame (~60 FPS)
@@ -585,6 +601,7 @@ export class Game extends Scene {
     });
 
     this.time.delayedCall(5000, () => {
+      this.sound.stopByKey("lightning-shield");
       followPlayer.remove(false); // Stop following the player
       levelUpEffect.destroy(); // Remove the effect
       this.isLevelUpEffectActive = false; // Flag to indicate the effect is active
@@ -593,9 +610,9 @@ export class Game extends Scene {
   }
 
   evaluateGameOver() {
-    if (this.playerHp <= 0) {
+    if (this.hp <= 0) {
       this.scene.stop();
-      this.playerHp = 100;
+      this.hp = 100;
       this.scene.start("GameOver", { level: this.level }); // End the game if HP is 0
     }
   }
@@ -607,7 +624,7 @@ export class Game extends Scene {
 
     // Reset the player if they fall out of the world
     if (this.player.y > HEIGHT) {
-      this.playerHp = 0; // Set HP to 0 to trigger game over
+      this.hp = 0; // Set HP to 0 to trigger game over
       this.evaluateGameOver();
     }
 
