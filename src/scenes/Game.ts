@@ -319,14 +319,18 @@ export class Game extends Scene {
     target: Phaser.Physics.Arcade.Sprite
   ) {
     if (spell.owner === "player" && target.isEnemy) {
-      target.hp -= 200; // Reduce enemy HP
+      const damage = this.calculateDamage(target);
+      target.hp -= damage; // Reduce enemy HP
+      this.showDamageNumber(target.x, target.y, damage); // Show damage number
       if (target.hp <= 0) {
         target.destroy(); // Destroy the enemy if HP is 0
       }
       spell.destroy();
     } else if (spell.owner === "enemy" && target === this.player) {
       if (!this.playerIsInvincible) {
-        this.playerHp -= 5; // Reduce player HP
+        const damage = this.calculateDamage(this.player);
+        this.playerHp -= damage; // Reduce player HP
+        this.showDamageNumber(this.player.x, this.player.y, damage, "#ff0000"); // Show damage number
         this.updateHealthBar();
         this.evaluateGameOver();
 
@@ -351,6 +355,44 @@ export class Game extends Scene {
       }
       spell.destroy();
     }
+  }
+
+  calculateDamage(character: Phaser.Physics.Arcade.Sprite): number {
+    if (character === this.player) {
+      // Damage range for enemies hitting the player
+      return Phaser.Math.Between(5, 10);
+    } else if (character.isEnemy) {
+      // Damage range for the player hitting enemies
+      return Phaser.Math.Between(13, 50);
+    }
+    return 0; // Default damage if character type is unknown
+  }
+
+  showDamageNumber(
+    x: number,
+    y: number,
+    damage: number,
+    color: string = "#ff0000"
+  ) {
+    // Create the damage number text
+    const damageText = this.add.text(x, y, `-${damage}`, {
+      font: "16px Arial",
+      color: color,
+      stroke: "#000000",
+      strokeThickness: 2,
+    });
+
+    // Animate the text to move upward and fade out
+    this.tweens.add({
+      targets: damageText,
+      y: y - 30, // Move upward
+      alpha: 0.1, // Fade out
+      duration: 500, // Animation duration
+      ease: "Power1",
+      onComplete: () => {
+        damageText.destroy(); // Destroy the text after the animation
+      },
+    });
   }
 
   updateHealthBar() {
