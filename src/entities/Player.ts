@@ -1,10 +1,13 @@
 import { PLAYER_GRAVITY_Y } from "../scenes/Game";
 import { Character } from "./Character";
 
+const PLAYER_GLOBAL_COOLDOWN = 800;
+
 export class Player extends Character {
   isInvincible: boolean = false; // Flag to track invincibility
   isLevelUpEffectActive: boolean = false; // Flag to track level-up effect
   levelUpEffect: Phaser.GameObjects.Sprite | null = null; // Reference to the level-up effect sprite
+  playerCanAttack: boolean = true;
 
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string) {
     super(scene, x, y, texture, 100); // Default HP for the player
@@ -15,6 +18,7 @@ export class Player extends Character {
     if (this.isInvincible) return; // Ignore damage if invincible
 
     this.hp -= damage; // Reduce HP
+    this.scene.sound.play("tap", { volume: 0.5 });
     this.showDamageNumber(this.x, this.y, damage); // Show damage number
     if (this.hp <= 0) {
       // Handle player death logic here (e.g., game over)
@@ -75,6 +79,57 @@ export class Player extends Character {
       }
       this.isLevelUpEffectActive = false; // Reset the flag
       this.isInvincible = false; // Remove invincibility
+    });
+  }
+
+  castPlayerSpell() {
+    if (!this.playerCanAttack) return;
+
+    this.playerCanAttack = false;
+
+    // Determine direction based on the player's facing direction
+    const direction = this.anims.currentAnim?.key == "left" ? -1 : 1; // -1 for left, 1 for right
+    const spellXOffset = direction * 25; // Offset the spell's starting position based on direction
+
+    // Y-offsets for multiple projectiles (optional)
+    const offsets = [-30, -50, -60];
+
+    offsets.forEach((offset) => {
+      // Create the spell
+      const spell = this.scene.spells.create(
+        this.x + spellXOffset, // Adjust starting X position
+        this.y + offset + 30, // Adjust Y position for spread
+        "projectile-spell"
+      );
+
+      spell.setScale(0.6);
+      spell.setAlpha(0.5);
+
+      if (direction === -1) {
+        spell.flipX = true;
+      } else {
+        spell.flipX = false;
+      }
+
+      // Play the spell animation
+      spell.anims.play("spellAnim");
+
+      // Set velocity and reduce gravity for a longer flight
+      const speed = 300; // Moderate speed
+      const gravity = -1900; // Negative gravity to make the arrow fly farther
+      spell.setVelocityX(direction * speed);
+      spell.setGravityY(gravity);
+      spell.owner = Player; // Tag the spell as a player spell
+
+      // Destroy the spell after 3 seconds
+      this.scene.time.delayedCall(3000, () => {
+        if (spell.active) spell.destroy();
+      });
+    });
+
+    // Reset the attack cooldown
+    this.scene.time.delayedCall(PLAYER_GLOBAL_COOLDOWN, () => {
+      this.playerCanAttack = true;
     });
   }
 }

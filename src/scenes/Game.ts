@@ -7,14 +7,13 @@ import { Enemy } from "../entities/Enemy";
 const PLATFORM_VERTICAL_POSITION = 315;
 const WORLD_BOUNDS_WIDTH = 2000;
 
-const PLAYER_GLOBAL_COOLDOWN = 250;
 export const PLAYER_GRAVITY_Y = 2000;
 const PLAYER_JUMP_VELOCITY_Y = -450; // Adjusted for smaller height
 const PLAYER_MOVEMENT_SPEED = 200; // Adjusted for smaller width
 
-const MAX_ENEMIES = 30; // Reduced due to smaller world size
+const MAX_ENEMIES = 10; // Reduced due to smaller world size
 const ENEMY_GLOBAL_COOLDOWN = 1000;
-const ENEMY_SPAWN_RATE = 50;
+const ENEMY_SPAWN_RATE = 500;
 const ENEMY_MOVEMENT_SPEED = 50; // Adjusted for smaller world
 
 export class Game extends Scene {
@@ -32,7 +31,7 @@ export class Game extends Scene {
   healthBar: Phaser.GameObjects.Graphics;
   experienceBar: Phaser.GameObjects.Graphics;
   levelText: Phaser.GameObjects.Text;
-  playerCanAttack: boolean = true;
+
   attackKey: Phaser.Input.Keyboard.Key;
 
   constructor() {
@@ -308,57 +307,6 @@ export class Game extends Scene {
     } catch (error) {}
   }
 
-  castPlayerSpell() {
-    if (!this.playerCanAttack) return;
-
-    this.playerCanAttack = false;
-
-    // Determine direction based on the player's facing direction
-    const direction = this.player.anims.currentAnim?.key == "left" ? -1 : 1; // -1 for left, 1 for right
-    const spellXOffset = direction * 25; // Offset the spell's starting position based on direction
-
-    // Y-offsets for multiple projectiles (optional)
-    const offsets = [-30, -50, -60];
-
-    offsets.forEach((offset) => {
-      // Create the spell
-      const spell = this.spells.create(
-        this.player.x + spellXOffset, // Adjust starting X position
-        this.player.y + offset + 30, // Adjust Y position for spread
-        "projectile-spell"
-      );
-
-      spell.setScale(0.6);
-      spell.setAlpha(0.5);
-
-      if (direction === -1) {
-        spell.flipX = true;
-      } else {
-        spell.flipX = false;
-      }
-
-      // Play the spell animation
-      spell.anims.play("spellAnim");
-
-      // Set velocity and reduce gravity for a longer flight
-      const speed = 300; // Moderate speed
-      const gravity = -1900; // Negative gravity to make the arrow fly farther
-      spell.setVelocityX(direction * speed);
-      spell.setGravityY(gravity);
-      spell.owner = "player"; // Tag the spell as a player spell
-
-      // Destroy the spell after 3 seconds
-      this.time.delayedCall(3000, () => {
-        if (spell.active) spell.destroy();
-      });
-    });
-
-    // Reset the attack cooldown
-    this.time.delayedCall(PLAYER_GLOBAL_COOLDOWN, () => {
-      this.playerCanAttack = true;
-    });
-  }
-
   spawnEnemies() {
     if (this.enemies.countActive(true) >= MAX_ENEMIES) return;
 
@@ -401,31 +349,6 @@ export class Game extends Scene {
     });
   }
 
-  enemyAttack(enemy: Phaser.Physics.Arcade.Sprite) {
-    if (!enemy.active) return;
-
-    // Calculate direction vector towards the player
-    const direction = new Phaser.Math.Vector2(
-      this.player.x - enemy.x,
-      this.player.y - enemy.y
-    ).normalize();
-
-    // Create the spell
-    const spell = this.spells.create(enemy.x, enemy.y - 60, "projectile-spell");
-    spell.setVelocity(direction.x * 1000, direction.y * 1000); // Set velocity towards the player
-    const gravity = -1000; // Negative gravity to make the arrow fly farther
-    spell.setGravityY(gravity);
-    spell.setTint(0xff0000); // Red tint
-    spell.owner = "enemy"; // Tag the spell as an enemy spell
-
-    spell.anims.play("spellAnim");
-
-    // Cleanup spells
-    this.time.delayedCall(3000, () => {
-      spell.destroy();
-    });
-  }
-
   handlePlayerDamage(damage: number) {
     this.player.hit(damage); // Use the `hit` method from the `Character` base class
     this.updateHealthBar();
@@ -447,10 +370,10 @@ export class Game extends Scene {
     spell: Phaser.Physics.Arcade.Image,
     target: Phaser.Physics.Arcade.Sprite
   ) {
-    if (spell.owner === "player" && target instanceof Enemy) {
+    if (spell.owner === Player && target instanceof Enemy) {
       this.hitTarget(target);
       spell.destroy();
-    } else if (spell.owner === "enemy" && target instanceof Player) {
+    } else if (spell.owner === Enemy && target instanceof Player) {
       this.hitTarget(target);
       spell.destroy();
     }
@@ -518,22 +441,7 @@ export class Game extends Scene {
     }
   }
 
-  update() {
-    this.evaluateGameOver();
-    this.handleMovement();
-    this.updateHealthBar();
-
-    // Reset the player if they fall out of the world
-    if (this.player.y > HEIGHT) {
-      this.player.hp = 0; // Set HP to 0 to trigger game over
-      this.evaluateGameOver();
-    }
-
-    // Handle player attack while pointer is pressed
-    if (this.input.activePointer.isDown) {
-      this.castPlayerSpell();
-    }
-
+  chasePlayer() {
     // Ensure enemies keep moving
     this.enemies.getChildren().forEach((enemy: Enemy) => {
       if (enemy.active) {
@@ -552,8 +460,33 @@ export class Game extends Scene {
         // Make the enemy jump randomly
         if (enemy.body?.touching.down && Phaser.Math.Between(0, 200) === 0) {
           enemy.setVelocityY(Phaser.Math.Between(-200, -800));
+          enemy.castSpellTowardsPlayer(this.player);
         }
       }
     });
+  }
+
+  gameOverOnFallOutOfWorld() {
+    // Reset the player if they fall out of the world
+    if (this.player.y > HEIGHT) {
+      this.player.hp = 0; // Set HP to 0 to trigger game over
+      this.evaluateGameOver();
+    }
+  }
+
+  handleCastSpells() {
+    // Handle player attack while pointer is pressed
+    if (this.input.activePointer.isDown) {
+      this.player.castPlayerSpell();
+    }
+  }
+
+  update() {
+    this.evaluateGameOver();
+    this.handleMovement();
+    this.handleCastSpells();
+    this.chasePlayer();
+    this.updateHealthBar();
+    this.gameOverOnFallOutOfWorld();
   }
 }
