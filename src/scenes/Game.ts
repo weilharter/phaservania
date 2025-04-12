@@ -115,14 +115,6 @@ export class Game extends Scene {
       callbackScope: this,
       loop: true, // Keep spawning enemies
     });
-
-    // Enemy attack timer
-    this.time.addEvent({
-      delay: 2000, // Enemy attacks every 2000 milliseconds
-      callback: this.enemyAttack,
-      callbackScope: this,
-      loop: true,
-    });
   }
 
   createPlatforms() {
@@ -195,7 +187,6 @@ export class Game extends Scene {
   }
 
   spawnEnemies() {
-    // Check if the number of active enemies is less than MAX_ENEMIES
     if (this.enemies.countActive(true) < MAX_ENEMIES) {
       const enemy = this.enemies.create(this.player.x + 400, 200, "dude");
       enemy.setBounce(0.1);
@@ -203,17 +194,23 @@ export class Game extends Scene {
       enemy.setVelocityX(
         Phaser.Math.Between(-ENEMY_MOVEMENT_SPEED, ENEMY_MOVEMENT_SPEED)
       );
-      enemy.anims.play("left"); // Default animation
+      enemy.anims.play("left");
+
+      // Assign a timer to this enemy for independent attacks
+      this.time.addEvent({
+        delay: Phaser.Math.Between(1500, 3000), // Random delay between attacks
+        callback: () => this.enemyAttack(enemy),
+        callbackScope: this,
+        loop: true,
+      });
     }
   }
 
-  enemyAttack() {
-    this.enemies.children.iterate((enemy: Phaser.GameObjects.GameObject) => {
-      const enemySprite = enemy as Phaser.Physics.Arcade.Sprite;
-      const spell = this.spells.create(enemySprite.x, enemySprite.y, "spell");
-      spell.setVelocityX(enemySprite.body.velocity.x > 0 ? 300 : -300);
-      spell.setGravityY(0);
-    });
+  enemyAttack(enemy: Phaser.Physics.Arcade.Sprite) {
+    if (!enemy.active) return; // Ensure the enemy is still active
+    const spell = this.spells.create(enemy.x, enemy.y, "spell");
+    spell.setVelocityX(enemy.body.velocity.x > 0 ? 300 : -300);
+    spell.setGravityY(0);
   }
 
   evaluateGameOver() {
