@@ -4,14 +4,15 @@ import { HEIGHT, WIDTH } from "../main";
 const PLATFORM_VERTICAL_POSITION = 550;
 const WORLD_BOUNDS_WIDTH = 2000;
 
+const PLAYER_GLOBAL_COOLDOWN = 100;
 const PLAYER_GRAVITY_Y = 2000;
 const PLAYER_JUMP_VELOCITY_Y = -900;
 const PLAYER_MOVEMENT_SPEED = 300;
 
-const MAX_ENEMIES = 1;
-const ENEMY_SPAWN_RATE = 1000;
-const ENEMY_MOVEMENT_SPEED = 200;
-const ENEMY_SPAWN_DISTANCE = 600;
+const MAX_ENEMIES = 3;
+const ENEMY_GLOBAL_COOLDOWN = 1000;
+const ENEMY_SPAWN_RATE = 500;
+const ENEMY_MOVEMENT_SPEED = 400;
 
 export class Game extends Scene {
   player: Phaser.Physics.Arcade.Sprite;
@@ -198,37 +199,37 @@ export class Game extends Scene {
   castPlayerSpell() {
     if (!this.playerCanAttack) return;
     this.playerCanAttack = false;
-    const spell = this.spells.create(
-      this.player.x + 50,
-      this.player.y,
-      "spell"
-    );
-    spell.setVelocityX(this.player.flipX ? -300 : 300);
-    spell.setGravityY(0);
-    spell.setBounce(0.2);
-    spell.owner = "player"; // Tag the spell as a player spell
+    const offsets = [-15, 0, 15, 30, 45]; // Y-offsets for the three projectiles
+    offsets.forEach((offset) => {
+      const spell = this.spells.create(
+        this.player.x + 50,
+        this.player.y + offset,
+        "spell"
+      );
+      spell.setVelocityX(this.player.flipX ? -3000 : 3000);
+      spell.setVelocityY(offset * 10); // Slight vertical spread
+      spell.setGravityY(1);
+      spell.owner = "player"; // Tag the spell as a player spell
+    });
 
-    this.time.delayedCall(1000, () => {
+    this.time.delayedCall(PLAYER_GLOBAL_COOLDOWN, () => {
       this.playerCanAttack = true;
     });
   }
 
   spawnEnemies() {
     if (this.enemies.countActive(true) < MAX_ENEMIES) {
-      const enemy = this.enemies.create(this.player.x + 400, 200, "dude");
-      enemy.setBounce(0.1);
-      enemy.setCollideWorldBounds(true);
-      enemy.setVelocityX(
-        Phaser.Math.Between(-ENEMY_MOVEMENT_SPEED, ENEMY_MOVEMENT_SPEED)
-      );
+      const enemy = this.enemies.create(this.player.x + 400, 100, "dude");
+      enemy.setVelocityX(ENEMY_MOVEMENT_SPEED);
       enemy.anims.play("left");
       enemy.hp = 100; // Add HP to the enemy
       enemy.isEnemy = true; // Tag as an enemy
+      enemy.setTint(0xff0000); // red tint
 
       this.characters.add(enemy); // Add to the characters group
 
       this.time.addEvent({
-        delay: Phaser.Math.Between(1500, 3000),
+        delay: ENEMY_GLOBAL_COOLDOWN,
         callback: () => this.enemyAttack(enemy),
         callbackScope: this,
         loop: true,
@@ -239,8 +240,9 @@ export class Game extends Scene {
   enemyAttack(enemy: Phaser.Physics.Arcade.Sprite) {
     if (!enemy.active) return;
     const spell = this.spells.create(enemy.x, enemy.y - 50, "spell");
-    spell.setVelocityX(-200);
+    spell.setVelocityX(-500);
     spell.setGravityY(0);
+    spell.setTint(0xff0000); // red tint
     spell.owner = "enemy"; // Tag the spell as an enemy spell
   }
 
@@ -249,12 +251,12 @@ export class Game extends Scene {
     target: Phaser.Physics.Arcade.Sprite
   ) {
     if (spell.owner === "player" && target.isEnemy) {
-      target.hp -= 30; // Reduce enemy HP
+      target.hp -= 200; // Reduce enemy HP
       if (target.hp <= 0) {
         target.destroy(); // Destroy the enemy if HP is 0
       }
     } else if (spell.owner === "enemy" && target === this.player) {
-      this.playerHp -= 10; // Reduce player HP
+      this.playerHp -= 5; // Reduce player HP
       this.updateHealthBar();
       this.evaluateGameOver();
     }
@@ -265,15 +267,15 @@ export class Game extends Scene {
     player: Phaser.Physics.Arcade.Sprite,
     enemy: Phaser.Physics.Arcade.Sprite
   ) {
-    const bounceBackVelocity = 500;
-    if (player.x < enemy.x) {
-      player.setVelocityX(-bounceBackVelocity); // Push left
-    } else {
-      player.setVelocityX(bounceBackVelocity); // Push right
-    }
-    this.playerHp -= 5; // Reduce player HP on collision
-    this.updateHealthBar();
-    this.evaluateGameOver();
+    // const bounceBackVelocity = 500;
+    // if (player.x < enemy.x) {
+    //   player.setVelocityX(-bounceBackVelocity); // Push left
+    // } else {
+    //   player.setVelocityX(bounceBackVelocity); // Push right
+    // }
+    // this.playerHp -= 5; // Reduce player HP on collision
+    // this.updateHealthBar();
+    // this.evaluateGameOver();
   }
 
   updateHealthBar() {
