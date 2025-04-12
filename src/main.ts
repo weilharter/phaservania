@@ -16,11 +16,11 @@ const config: Types.Core.GameConfig = {
   width: WIDTH,
   height: HEIGHT,
   pixelArt: true,
-  zoom: 6, // 320×6 = 1920, 180×6 = 1080
+  zoom: 6,
   parent: "game-container",
-  backgroundColor: "#028af8",
+  backgroundColor: "#000",
   scale: {
-    mode: Phaser.Scale.FIT,
+    mode: Phaser.Scale.CENTER_HORIZONTALLY,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   // render: {
