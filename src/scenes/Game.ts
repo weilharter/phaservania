@@ -18,6 +18,7 @@ export class Game extends Scene {
   level: number = 3;
   levelXp: number = 0;
   xpToNextLevel: number = 10000;
+  isLevelUpEffectActive: boolean = false;
   player: Phaser.Physics.Arcade.Sprite;
   playerHp: number = 100;
   playerIsInvincible: boolean = false;
@@ -513,6 +514,7 @@ export class Game extends Scene {
     levelUpEffect.setScale(2); // Scale the effect to fit the player
     levelUpEffect.setDepth(10); // Ensure it appears above other objects
     levelUpEffect.play("levelUpAnim"); // Play the level-up animation
+    this.isLevelUpEffectActive = true; // Flag to indicate the effect is active
 
     // Follow the player during the effect
     const followPlayer = this.time.addEvent({
@@ -525,9 +527,10 @@ export class Game extends Scene {
     });
 
     // Destroy the effect after 1 second
-    this.time.delayedCall(1000, () => {
+    this.time.delayedCall(5000, () => {
       followPlayer.remove(false); // Stop following the player
       levelUpEffect.destroy(); // Remove the effect
+      this.isLevelUpEffectActive = false; // Flag to indicate the effect is active
     });
   }
 
