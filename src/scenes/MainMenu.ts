@@ -16,7 +16,7 @@ export class MainMenu extends Scene {
     this.background;
 
     this.subtitle = this.add
-      .text(centerX, centerY + 100, "PRESS SPACE OR TAP TO START", {
+      .text(centerX, centerY, "PRESS SPACE OR TAP TO START", {
         fontFamily: "Arial Black",
         fontSize: 30,
         color: "#ffffff",

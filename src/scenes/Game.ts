@@ -16,7 +16,7 @@ const ENEMY_SPAWN_RATE = 50;
 const ENEMY_MOVEMENT_SPEED = 50; // Adjusted for smaller world
 
 export class Game extends Scene {
-  level: number = 6;
+  level: number = 5;
   levelXp: number = 0;
   xpToNextLevel: number = 2000;
   isLevelUpEffectActive: boolean = false;
@@ -66,7 +66,7 @@ export class Game extends Scene {
     // Player
     this.player = this.physics.add.sprite(
       WORLD_BOUNDS_WIDTH / 2,
-      HEIGHT / 2,
+      HEIGHT - 60,
       "charmodel"
     );
     this.player.setCollideWorldBounds(true);
@@ -125,9 +125,7 @@ export class Game extends Scene {
         }
 
         if (this.isLevelUpEffectActive) {
-          const BIG_DMG = 9999;
-          enemy.hit(BIG_DMG);
-          this.showDamageNumber(enemy.x, enemy.y, BIG_DMG, "#ffff00"); // Show damage number
+          this.hitTarget(enemy, 9999); // Call the hitTarget method to handle enemy damage
         }
       },
       undefined,
@@ -182,6 +180,7 @@ export class Game extends Scene {
     const platformWidth = 200; // Adjusted for smaller world
     const numPlatforms = Math.ceil(WORLD_BOUNDS_WIDTH / platformWidth) + 1; // Calculate how many platforms are needed
 
+    // Create horizontal platforms
     for (let i = 0; i < numPlatforms; i++) {
       this.platforms
         .create(
@@ -192,6 +191,24 @@ export class Game extends Scene {
         .setScale(1)
         .refreshBody();
     }
+
+    // Create vertical platforms at the left and right boundaries
+    const platformHeight = HEIGHT; // Height of the vertical platforms
+    const verticalPlatformWidth = 20; // Width of the vertical platforms
+
+    // Left boundary platform
+    this.platforms
+      .create(0, HEIGHT / 2, "ground")
+      .setScale(1, platformHeight / verticalPlatformWidth) // Scale to make it tall
+      .setOrigin(0.5, 0.5)
+      .refreshBody();
+
+    // Right boundary platform
+    this.platforms
+      .create(WORLD_BOUNDS_WIDTH, HEIGHT / 2, "ground")
+      .setScale(1, platformHeight / verticalPlatformWidth) // Scale to make it tall
+      .setOrigin(0.5, 0.5)
+      .refreshBody();
   }
 
   createAnimations() {
@@ -236,7 +253,7 @@ export class Game extends Scene {
       this.anims.create({
         key: "spellAnim",
         frames: this.anims.generateFrameNumbers("spell", { start: 3, end: 5 }),
-        frameRate: 15,
+        frameRate: 6,
       });
     }
 
@@ -248,12 +265,10 @@ export class Game extends Scene {
           start: 0,
           end: 9,
         }),
-        frameRate: 15,
+        frameRate: 30,
         repeat: -1, // Loop the animation
       });
     }
-
-    this.player.anims.play("front");
   }
 
   handleMovement() {
@@ -264,7 +279,6 @@ export class Game extends Scene {
         this.player.setVelocityX(PLAYER_MOVEMENT_SPEED);
       } else {
         this.player.setVelocityX(0);
-        this.player.anims.play("front");
       }
       if (
         (this.cursorKeys.space?.isDown ||
@@ -278,8 +292,10 @@ export class Game extends Scene {
     const pointer = this.input.activePointer;
     if (pointer.worldX < this.player.x) {
       this.player.anims.play("left", true);
+      this.player.flipX = true;
     } else {
       this.player.anims.play("right", true);
+      this.player.flipX = false;
     }
   }
 
@@ -293,7 +309,7 @@ export class Game extends Scene {
     const spellXOffset = direction * 25; // Offset the spell's starting position based on direction
 
     // Y-offsets for multiple projectiles (optional)
-    const offsets = Array.from({ length: this.level }, (_, i) => -60 - i * 10); // Generate offsets based on level
+    const offsets = Array.from({ length: this.level }, (_, i) => -30 - i * 10); // Generate offsets based on level
 
     offsets.forEach((offset) => {
       // Create the spell
@@ -328,16 +344,21 @@ export class Game extends Scene {
   spawnEnemies() {
     if (this.enemies.countActive(true) >= MAX_ENEMIES) return;
 
+    // Define spawn margins
+    const margin = 100; // Margin from the left and right boundaries
+    const spawnAreaStart = margin;
+    const spawnAreaEnd = WORLD_BOUNDS_WIDTH - margin;
+
     // Determine spawn side (left or right)
     const spawnFromLeft = Phaser.Math.Between(0, 1) === 0;
 
     let spawnX;
     do {
-      // Spawn position within world bounds near player
+      // Spawn position within the defined spawn area
       spawnX = spawnFromLeft
-        ? Phaser.Math.Between(0, WORLD_BOUNDS_WIDTH / 2) // Left half of the world
-        : Phaser.Math.Between(WORLD_BOUNDS_WIDTH / 2, WORLD_BOUNDS_WIDTH); // Right half of the world
-    } while (Math.abs(spawnX - this.player.x) < 300); // Ensure enemy spawns at least 100px away from the player
+        ? Phaser.Math.Between(spawnAreaStart, WORLD_BOUNDS_WIDTH / 2) // Left half of the spawn area
+        : Phaser.Math.Between(WORLD_BOUNDS_WIDTH / 2, spawnAreaEnd); // Right half of the spawn area
+    } while (Math.abs(spawnX - this.player.x) < 100); // Ensure enemy spawns at least 300px away from the player
 
     const spawnY = PLATFORM_VERTICAL_POSITION - 40; // Spawn above the platform
 
@@ -415,17 +436,24 @@ export class Game extends Scene {
     });
   }
 
+  hitTarget(target: Enemy, damage: number = 0) {
+    if (damage === 0) {
+      damage = this.calculateDamage(target); // Calculate damage if not provided
+    }
+    target.hit(damage); // Use the `hit` method to reduce HP
+    this.showDamageNumber(target.x, target.y, damage, "#ffff00"); // Show damage number
+    // FIXME: make player generic class & compatible with target.hp
+    if (target.hp <= 0) {
+      this.gainExperience(1000); // Gain 1000 XP for killing an enemy
+    }
+  }
+
   handleSpellCollision(
     spell: Phaser.Physics.Arcade.Image,
     target: Phaser.Physics.Arcade.Sprite
   ) {
     if (spell.owner === "player" && target instanceof Enemy) {
-      const damage = this.calculateDamage(target);
-      target.hit(damage); // Use the `hit` method to reduce HP
-      this.showDamageNumber(target.x, target.y, damage, "#ffff00"); // Show damage number
-      if (target.hp <= 0) {
-        this.gainExperience(1000); // Gain 1000 XP for killing an enemy
-      }
+      this.hitTarget(target);
       spell.destroy();
     } else if (spell.owner === "enemy" && target === this.player) {
       if (!this.playerIsInvincible) {
@@ -523,7 +551,7 @@ export class Game extends Scene {
       this.player.y,
       "levelUpEffect"
     );
-    levelUpEffect.setScale(2); // Scale the effect to fit the player
+    levelUpEffect.setScale(1); // Scale the effect to fit the player
     levelUpEffect.setDepth(10); // Ensure it appears above other objects
     levelUpEffect.play("levelUpAnim"); // Play the level-up animation
 
@@ -552,7 +580,7 @@ export class Game extends Scene {
     if (this.playerHp <= 0) {
       this.scene.stop();
       this.playerHp = 100;
-      this.scene.start("GameOver"); // End the game if HP is 0
+      this.scene.start("GameOver", { level: this.level }); // End the game if HP is 0
     }
   }
 
@@ -561,9 +589,21 @@ export class Game extends Scene {
     this.updateHealthBar();
     this.evaluateGameOver();
 
+    // Reset the player if they fall out of the world
+    if (this.player.y > HEIGHT) {
+      this.playerHp = 0; // Set HP to 0 to trigger game over
+      this.evaluateGameOver();
+    }
+
     // Handle player attack while pointer is pressed
     if (this.input.activePointer.isDown) {
       this.castPlayerSpell();
+    }
+
+    if (this.isLevelUpEffectActive) {
+      this.player.setTint(0xffff00); // Apply a golden tint to the player
+    } else {
+      this.player.setTint(0xffffff); // Reset the tint to white
     }
 
     // Ensure enemies keep moving
@@ -572,11 +612,11 @@ export class Game extends Scene {
       .forEach((enemy: Phaser.Physics.Arcade.Sprite) => {
         if (enemy.active) {
           const distanceToPlayer = Math.abs(this.player.x - enemy.x);
-          if (distanceToPlayer < 20) {
+          if (distanceToPlayer < 15) {
             // Move away from the player if too close
             const directionX = this.player.x > enemy.x ? -1 : 1; // Move away from the player's X position
             enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
-          } else if (distanceToPlayer > 20) {
+          } else if (distanceToPlayer > 15) {
             // Move closer to the player if too far
             const directionX = this.player.x > enemy.x ? 1 : -1; // Move towards the player's X position
             enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);

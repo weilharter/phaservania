@@ -4,14 +4,14 @@ export class GameOver extends Scene {
   camera: Phaser.Cameras.Scene2D.Camera;
   background: Phaser.GameObjects.Image;
   gameover_text: Phaser.GameObjects.Text;
-  score: number = 0;
+  level: number = 0;
 
   constructor() {
     super("GameOver");
   }
 
-  init(data: { score: number }) {
-    this.score = data.score;
+  init(data: { level: number }) {
+    this.level = data.level;
   }
 
   create() {
@@ -27,12 +27,12 @@ export class GameOver extends Scene {
     this.gameover_text = this.add.text(
       centerX,
       centerY,
-      `Game Over\nScore: ${this.score ?? 0}`,
+      `\nLevel Reached: ${this.level || 0}`,
       {
         fontFamily: "Arial Black",
-        fontSize: 64,
-        color: "#ffffff",
-        stroke: "#000000",
+        fontSize: 30,
+        color: "#fff",
+        stroke: "#000",
         strokeThickness: 8,
         align: "center",
       }
@@ -43,6 +43,9 @@ export class GameOver extends Scene {
       Phaser.Input.Keyboard.KeyCodes.SPACE
     );
     spaceKey?.once("down", () => {
+      this.scene.start("MainMenu");
+    });
+    this.input.once("pointerdown", () => {
       this.scene.start("MainMenu");
     });
   }
