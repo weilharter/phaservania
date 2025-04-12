@@ -9,20 +9,21 @@ const PLAYER_GRAVITY_Y = 2000;
 const PLAYER_JUMP_VELOCITY_Y = -900;
 const PLAYER_MOVEMENT_SPEED = 300;
 
-const MAX_ENEMIES = 3;
+const MAX_ENEMIES = 10;
 const ENEMY_GLOBAL_COOLDOWN = 1000;
 const ENEMY_SPAWN_RATE = 500;
 const ENEMY_MOVEMENT_SPEED = 100;
 
 export class Game extends Scene {
   player: Phaser.Physics.Arcade.Sprite;
+  playerHp: number = 100;
+  playerIsInvincible: boolean = false; // New property for invincibility
   platforms: Phaser.Physics.Arcade.Group;
   enemies: Phaser.Physics.Arcade.Group;
   spells: Phaser.Physics.Arcade.Group;
   characters: Phaser.Physics.Arcade.Group;
   cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
   keyboardKeys: any;
-  playerHp: number = 100;
   healthBar: Phaser.GameObjects.Graphics;
   playerCanAttack: boolean = true; // Cooldown flag for player attacks
   attackKey: Phaser.Input.Keyboard.Key; // Key for attacking
@@ -85,13 +86,7 @@ export class Game extends Scene {
     this.physics.add.collider(this.spells, this.platforms, (spell) => {
       spell.destroy(); // Destroy the spell on collision with platforms
     });
-    this.physics.add.collider(
-      this.characters,
-      this.characters,
-      this.handlePlayerEnemyCollision,
-      undefined,
-      this
-    );
+    this.physics.add.collider(this.characters, this.characters);
     this.physics.add.overlap(
       this.spells,
       this.characters,
@@ -189,10 +184,8 @@ export class Game extends Scene {
     if (this.input.keyboard) {
       if (this.cursorKeys.left.isDown || this.keyboardKeys.A.isDown) {
         this.player.setVelocityX(-PLAYER_MOVEMENT_SPEED);
-        this.player.anims.play("left", true);
       } else if (this.cursorKeys.right.isDown || this.keyboardKeys.D.isDown) {
         this.player.setVelocityX(PLAYER_MOVEMENT_SPEED);
-        this.player.anims.play("right", true);
       } else {
         this.player.setVelocityX(0);
         this.player.anims.play("front");
@@ -206,6 +199,12 @@ export class Game extends Scene {
         this.player.setVelocityY(PLAYER_JUMP_VELOCITY_Y);
       }
     }
+    const pointer = this.input.activePointer;
+    if (pointer.worldX < this.player.x) {
+      this.player.anims.play("left", true);
+    } else {
+      this.player.anims.play("right", true);
+    }
   }
 
   castPlayerSpell() {
@@ -214,7 +213,7 @@ export class Game extends Scene {
     this.playerCanAttack = false;
 
     // Determine direction based on the player's facing direction
-    const direction = this.player.flipX ? -1 : 1; // -1 for left, 1 for right
+    const direction = this.player.anims.currentAnim?.key == "left" ? -1 : 1; // -1 for left, 1 for right
     const spellXOffset = direction * 20; // Offset the spell's starting position based on direction
 
     // Y-offsets for multiple projectiles (optional)
@@ -324,26 +323,32 @@ export class Game extends Scene {
         target.destroy(); // Destroy the enemy if HP is 0
       }
     } else if (spell.owner === "enemy" && target === this.player) {
-      this.playerHp -= 5; // Reduce player HP
-      this.updateHealthBar();
-      this.evaluateGameOver();
+      if (!this.playerIsInvincible) {
+        this.playerHp -= 5; // Reduce player HP
+        this.updateHealthBar();
+        this.evaluateGameOver();
+
+        // Make the player blink
+        this.playerIsInvincible = true;
+        this.tweens.add({
+          targets: this.player,
+          alpha: 0,
+          duration: 100,
+          ease: "Linear",
+          yoyo: true,
+          repeat: 5, // Blink 5 times
+          onComplete: () => {
+            this.player.setAlpha(1); // Ensure player is fully visible after blinking
+          },
+        });
+
+        // Grant invincibility for 1 second
+        this.time.delayedCall(1000, () => {
+          this.playerIsInvincible = false;
+        });
+      }
     }
     spell.destroy(); // Destroy the spell after collision
-  }
-
-  handlePlayerEnemyCollision(
-    player: Phaser.Physics.Arcade.Sprite,
-    enemy: Phaser.Physics.Arcade.Sprite
-  ) {
-    // const bounceBackVelocity = 500;
-    // if (player.x < enemy.x) {
-    //   player.setVelocityX(-bounceBackVelocity); // Push left
-    // } else {
-    //   player.setVelocityX(bounceBackVelocity); // Push right
-    // }
-    // this.playerHp -= 5; // Reduce player HP on collision
-    // this.updateHealthBar();
-    // this.evaluateGameOver();
   }
 
   updateHealthBar() {
@@ -365,9 +370,6 @@ export class Game extends Scene {
   update() {
     this.handleMovement();
 
-    // Make the player face the cursor
-    this.updatePlayerDirection();
-
     // Handle player attack while pointer is pressed
     if (this.input.activePointer.isDown) {
       this.castPlayerSpell();
@@ -382,17 +384,5 @@ export class Game extends Scene {
           enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
         }
       });
-  }
-
-  updatePlayerDirection() {
-    const pointer = this.input.activePointer;
-
-    // Flip the player sprite based on the cursor's position
-    if (pointer.worldX < this.player.x) {
-      // TODO: remove this flipx and replace with animation state !!! does not work properly
-      this.player.setFlipX(true); // Face left
-    } else {
-      this.player.setFlipX(false); // Face right
-    }
   }
 }
