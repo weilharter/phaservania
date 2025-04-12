@@ -216,6 +216,14 @@ export class Game extends Scene {
     });
   }
 
+  evaluateGameOver() {
+    if (this.playerHp <= 0) {
+      this.scene.stop();
+      this.playerHp = 100;
+      this.scene.start("GameOver"); // End the game if HP is 0
+    }
+  }
+
   handlePlayerEnemyCollision(
     player: Phaser.Physics.Arcade.Sprite,
     enemy: Phaser.Physics.Arcade.Sprite
@@ -226,15 +234,6 @@ export class Game extends Scene {
     } else {
       player.setVelocityX(bounceBackVelocity); // Push right
     }
-
-    this.playerHp -= 10; // Reduce HP
-    this.updateHealthBar(); // Update the health bar
-
-    if (this.playerHp <= 0) {
-      this.scene.stop();
-      this.playerHp = 100;
-      this.scene.start("GameOver"); // End the game if HP is 0
-    }
   }
 
   handlePlayerSpellCollision(
@@ -244,12 +243,7 @@ export class Game extends Scene {
     spell.destroy();
     this.playerHp -= 10; // Reduce HP
     this.updateHealthBar(); // Update the health bar
-
-    if (this.playerHp <= 0) {
-      this.scene.stop();
-      this.playerHp = 100;
-      this.scene.start("GameOver"); // End the game if HP is 0
-    }
+    this.evaluateGameOver();
   }
 
   updateHealthBar() {
