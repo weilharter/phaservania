@@ -14,20 +14,9 @@ export class MainMenu extends Scene {
     const centerX = this.scale.width / 2;
     const centerY = this.scale.height / 2;
 
-    // this.background = this.add.image(centerX, centerY, "background");
+    this.background = this.add.image(centerX, centerY, "background");
 
-    // this.logo = this.add.image(centerX, centerY - 84, "logo");
-
-    this.title = this.add
-      .text(centerX, centerY, "!", {
-        fontFamily: "Arial Black",
-        fontSize: 50,
-        color: "#ffffff",
-        stroke: "#000000",
-        strokeThickness: 8,
-        align: "center",
-      })
-      .setOrigin(0.5);
+    this.logo = this.add.image(centerX, centerY - 84, "logo");
 
     this.subtitle = this.add
       .text(centerX, centerY + 100, "PRESS SPACE TO START", {

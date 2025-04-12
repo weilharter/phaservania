@@ -16,7 +16,8 @@ export class Game extends Scene {
   enemies: Phaser.Physics.Arcade.Group;
   lastPlatformX = 0;
   lastEnemySpawnX = 0;
-  cursors: Phaser.Types.Input.Keyboard.CursorKeys;
+  cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
+  keyboardKeys: any;
   farBuildings: Phaser.GameObjects.TileSprite;
   buildings: Phaser.GameObjects.TileSprite;
   foreground: Phaser.GameObjects.TileSprite;
@@ -33,36 +34,12 @@ export class Game extends Scene {
       frameHeight: 48,
     });
     this.load.image("sky", "assets/background/sky.png");
-    // this.load.image("far-buildings", "assets/background/far-buildings.png");
-    // this.load.image("buildings", "assets/background/buildings.png");
-    // this.load.image("foreground", "assets/background/foreground.png");
   }
 
   create() {
     this.add
       .tileSprite(0, 0, WORLD_BOUNDS_WIDTH, HEIGHT, "sky")
       .setOrigin(0, 0);
-    // // Parallax Background Layers
-    // this.add
-    //   .tileSprite(0, 0, 500, HEIGHT, "bg")
-    //   .setOrigin(0, 0)
-    //   .setScale(5)
-    //   .setScrollFactor(0); // Farthest background
-    // this.farBuildings = this.add
-    //   .tileSprite(0, 0, 500, HEIGHT, "far-buildings")
-    //   .setOrigin(0, 0)
-    //   .setScale(5)
-    //   .setScrollFactor(0);
-    // this.buildings = this.add
-    //   .tileSprite(0, 0, 500, HEIGHT, "buildings")
-    //   .setOrigin(0, 0)
-    //   .setScale(5)
-    //   .setScrollFactor(0);
-    // this.foreground = this.add
-    //   .tileSprite(0, 0, 500, HEIGHT, "foreground")
-    //   .setOrigin(0, 0)
-    //   .setScale(5)
-    //   .setScrollFactor(0);
 
     // Player
     this.player = this.physics.add.sprite(100, 450, "dude");
@@ -130,53 +107,59 @@ export class Game extends Scene {
         repeat: -1,
       });
     }
-
     this.player.anims.play("front");
 
-    // Input
-    this.cursors = this.input.keyboard.createCursorKeys();
+    // Setup Keybinds
+    if (this.input.keyboard) {
+      this.cursorKeys = this.input.keyboard.createCursorKeys();
+      this.keyboardKeys = this.input.keyboard?.addKeys({
+        W: Phaser.Input.Keyboard.KeyCodes.W,
+        A: Phaser.Input.Keyboard.KeyCodes.A,
+        S: Phaser.Input.Keyboard.KeyCodes.S,
+        D: Phaser.Input.Keyboard.KeyCodes.D,
+      });
+    }
   }
 
-  update() {
-    // Player movement
-    const speed = PLAYER_MOVEMENT_SPEED;
-    if (this.cursors.left.isDown) {
-      this.player.setVelocityX(-speed);
-      this.player.anims.play("left", true);
-    } else if (this.cursors.right.isDown) {
-      this.player.setVelocityX(speed);
-      this.player.anims.play("right", true);
-    } else {
-      this.player.setVelocityX(0);
-      this.player.anims.play("front");
+  handleMovement() {
+    if (this.input.keyboard) {
+      if (this.cursorKeys.left.isDown || this.keyboardKeys.A.isDown) {
+        this.player.setVelocityX(-PLAYER_MOVEMENT_SPEED);
+        this.player.anims.play("left", true);
+      } else if (this.cursorKeys.right.isDown || this.keyboardKeys.D.isDown) {
+        this.player.setVelocityX(PLAYER_MOVEMENT_SPEED);
+        this.player.anims.play("right", true);
+      } else {
+        this.player.setVelocityX(0);
+        this.player.anims.play("front");
+      }
+      if (
+        (this.cursorKeys.space?.isDown ||
+          this.cursorKeys.up?.isDown ||
+          this.keyboardKeys.W.isDown) &&
+        this.player.body?.touching.down
+      ) {
+        // Jumping
+        this.player.setVelocityY(PLAYER_JUMP_VELOCITY_Y);
+      }
     }
+  }
 
-    // Jumping
-    if (
-      (this.cursors.space?.isDown || this.cursors.up?.isDown) &&
-      this.player.body?.touching.down
-    ) {
-      this.player.setVelocityY(PLAYER_JUMP_VELOCITY_Y);
-    }
-
-    // Parallax Scrolling
-    // this.farBuildings.tilePositionX = this.cameras.main.scrollX * 0.2; // Slowest layer
-    // this.buildings.tilePositionX = this.cameras.main.scrollX * 0.5; // Medium speed
-    // this.foreground.tilePositionX = this.cameras.main.scrollX * 0.8; // Fastest layer
-
-    // Recycle platforms
+  recyclePlatforms() {
     this.platforms.children.iterate((plat: Phaser.GameObjects.GameObject) => {
       const platform = plat as Phaser.Physics.Arcade.Sprite;
       if (platform.x + platform.width < this.player.x - 400) {
         platform.x = this.lastPlatformX + 400;
         platform.y = PLATFORM_VERTICAL_POSITION + Phaser.Math.Between(-5, 5);
         // platform.y = PLATFORM_VERTICAL_POSITION + Phaser.Math.Between(-50, 50);
-        platform.body.updateFromGameObject();
+        platform.body?.updateFromGameObject();
         this.lastPlatformX = platform.x;
       }
+      return null;
     });
+  }
 
-    // Gegner spawnen
+  spawnEnemies() {
     if (this.player.x > this.lastEnemySpawnX + 600) {
       const enemy = this.enemies.create(this.player.x + 400, 200, "enemy");
       enemy.setBounce(1);
@@ -184,5 +167,11 @@ export class Game extends Scene {
       enemy.setVelocityX(-100);
       this.lastEnemySpawnX = this.player.x;
     }
+  }
+
+  update() {
+    this.handleMovement();
+    this.recyclePlatforms();
+    this.spawnEnemies();
   }
 }
