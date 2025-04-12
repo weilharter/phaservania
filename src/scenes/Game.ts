@@ -12,7 +12,7 @@ const PLAYER_MOVEMENT_SPEED = 300;
 const MAX_ENEMIES = 3;
 const ENEMY_GLOBAL_COOLDOWN = 1000;
 const ENEMY_SPAWN_RATE = 500;
-const ENEMY_MOVEMENT_SPEED = 400;
+const ENEMY_MOVEMENT_SPEED = 100;
 
 export class Game extends Scene {
   player: Phaser.Physics.Arcade.Sprite;
@@ -190,9 +190,9 @@ export class Game extends Scene {
       }
 
       // Handle player attack
-      if (this.keyboardKeys.F.isDown) {
+      this.input.on("pointerdown", () => {
         this.castPlayerSpell();
-      }
+      });
     }
   }
 
@@ -201,27 +201,34 @@ export class Game extends Scene {
 
     this.playerCanAttack = false;
 
-    const direction = this.player.anims.currentAnim.key == "left" ? -1 : 1; // Determine direction (-1 for left, 1 for right)
+    // Determine direction based on the player's facing direction
+    const direction = this.player.flipX ? -1 : 1; // -1 for left, 1 for right
     const spellXOffset = direction * 20; // Offset the spell's starting position based on direction
 
-    const offsets = [-15, 0, 15]; // Y-offsets for the projectiles
+    // Y-offsets for multiple projectiles (optional)
+    const offsets = [-15, 0, 15]; // Adjust as needed for spread
+
     offsets.forEach((offset) => {
+      // Create the spell
       const spell = this.spells.create(
         this.player.x + spellXOffset, // Adjust starting X position
-        this.player.y + offset,
+        this.player.y + offset, // Adjust Y position for spread
         "spell"
       );
 
-      spell.setVelocityX(direction * 2000); // Set velocity based on direction
+      // Set velocity based on direction
+      const speed = 2000; // Adjust the speed as needed
+      spell.setVelocityX(direction * speed);
       spell.setGravityY(0); // No gravity for the spell
       spell.owner = "player"; // Tag the spell as a player spell
 
-      // cleanup spells
+      // Destroy the spell after 2 seconds
       this.time.delayedCall(2000, () => {
-        spell.destroy();
+        if (spell.active) spell.destroy();
       });
     });
 
+    // Reset the attack cooldown
     this.time.delayedCall(PLAYER_GLOBAL_COOLDOWN, () => {
       this.playerCanAttack = true;
     });
@@ -233,19 +240,20 @@ export class Game extends Scene {
     // Determine spawn side (left or right)
     const spawnFromLeft = Phaser.Math.Between(0, 1) === 0;
 
-    // Spawn position within world bounds
-    const spawnX = spawnFromLeft
-      ? Phaser.Math.Between(0, WORLD_BOUNDS_WIDTH / 2) // Left half of the world
-      : Phaser.Math.Between(WORLD_BOUNDS_WIDTH / 2, WORLD_BOUNDS_WIDTH); // Right half of the world
-    const spawnY = Phaser.Math.Between(100, HEIGHT - 100); // Random Y position within bounds
+    let spawnX;
+    do {
+      // Spawn position within world bounds near player
+      spawnX = spawnFromLeft
+        ? Phaser.Math.Between(0, WORLD_BOUNDS_WIDTH / 2) // Left half of the world
+        : Phaser.Math.Between(WORLD_BOUNDS_WIDTH / 2, WORLD_BOUNDS_WIDTH); // Right half of the world
+    } while (Math.abs(spawnX - this.player.x) < 450); // Ensure enemy spawns at least 200px away from the player
+
+    const spawnY = PLATFORM_VERTICAL_POSITION - 50; // Spawn above the platform
 
     // Create the enemy
     const enemy = this.enemies.create(spawnX, spawnY, "dude");
-    enemy.setVelocityX(
-      spawnFromLeft ? ENEMY_MOVEMENT_SPEED : -ENEMY_MOVEMENT_SPEED
-    ); // Move towards the center
     enemy.setCollideWorldBounds(true); // Keep enemies within world bounds
-    enemy.anims.play("left");
+    enemy.anims.play("front");
     enemy.hp = 100; // Add HP to the enemy
     enemy.isEnemy = true; // Tag as an enemy
     enemy.setTint(0xff0000); // Red tint for enemies
@@ -270,12 +278,21 @@ export class Game extends Scene {
 
   enemyAttack(enemy: Phaser.Physics.Arcade.Sprite) {
     if (!enemy.active) return;
+
+    // Calculate direction vector towards the player
+    const direction = new Phaser.Math.Vector2(
+      this.player.x - enemy.x,
+      this.player.y - enemy.y
+    ).normalize();
+
+    // Create the spell
     const spell = this.spells.create(enemy.x, enemy.y - 50, "spell");
-    spell.setVelocityX(-500);
+    spell.setVelocity(direction.x * 1000, direction.y * 1000); // Set velocity towards the player
     spell.setGravityY(0);
-    spell.setTint(0xff0000); // red tint
+    spell.setTint(0xff0000); // Red tint
     spell.owner = "enemy"; // Tag the spell as an enemy spell
-    // cleanup spells
+
+    // Cleanup spells
     this.time.delayedCall(2000, () => {
       spell.destroy();
     });
@@ -331,5 +348,30 @@ export class Game extends Scene {
 
   update() {
     this.handleMovement();
+
+    // Make the player face the cursor
+    this.updatePlayerDirection();
+
+    // Ensure enemies keep moving
+    this.enemies
+      .getChildren()
+      .forEach((enemy: Phaser.Physics.Arcade.Sprite) => {
+        if (enemy.active) {
+          const directionX = this.player.x > enemy.x ? 1 : -1; // Move towards the player's X position
+          enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
+        }
+      });
+  }
+
+  updatePlayerDirection() {
+    const pointer = this.input.activePointer;
+
+    // Flip the player sprite based on the cursor's position
+    if (pointer.worldX < this.player.x) {
+      // TODO: remove this flipx and replace with animation state !!! does not work properly
+      this.player.setFlipX(true); // Face left
+    } else {
+      this.player.setFlipX(false); // Face right
+    }
   }
 }
