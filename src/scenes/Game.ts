@@ -17,6 +17,7 @@ export class Game extends Scene {
   player: Phaser.Physics.Arcade.Sprite;
   platforms: Phaser.Physics.Arcade.Group;
   enemies: Phaser.Physics.Arcade.Group;
+  spells: Phaser.Physics.Arcade.Group;
   cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
   keyboardKeys: any;
   playerHp: number = 100;
@@ -33,6 +34,7 @@ export class Game extends Scene {
       frameHeight: 48,
     });
     this.load.image("sky", "assets/background/sky.png");
+    this.load.image("spell", "assets/bomb.png");
   }
 
   create() {
@@ -63,9 +65,22 @@ export class Game extends Scene {
     // Enemies
     this.enemies = this.physics.add.group();
 
+    // Spells
+    this.spells = this.physics.add.group();
+
     // Physics
     this.physics.add.collider(this.player, this.platforms);
     this.physics.add.collider(this.enemies, this.platforms);
+    this.physics.add.collider(this.spells, this.platforms, (spell) =>
+      spell.destroy()
+    );
+    this.physics.add.overlap(
+      this.player,
+      this.spells,
+      this.handlePlayerSpellCollision,
+      undefined,
+      this
+    );
     this.physics.add.collider(
       this.player,
       this.enemies,
@@ -99,6 +114,14 @@ export class Game extends Scene {
       callback: this.spawnEnemies,
       callbackScope: this,
       loop: true, // Keep spawning enemies
+    });
+
+    // Enemy attack timer
+    this.time.addEvent({
+      delay: 2000, // Enemy attacks every 2000 milliseconds
+      callback: this.enemyAttack,
+      callbackScope: this,
+      loop: true,
     });
   }
 
@@ -184,6 +207,15 @@ export class Game extends Scene {
     }
   }
 
+  enemyAttack() {
+    this.enemies.children.iterate((enemy: Phaser.GameObjects.GameObject) => {
+      const enemySprite = enemy as Phaser.Physics.Arcade.Sprite;
+      const spell = this.spells.create(enemySprite.x, enemySprite.y, "spell");
+      spell.setVelocityX(enemySprite.body.velocity.x > 0 ? 300 : -300);
+      spell.setGravityY(0);
+    });
+  }
+
   handlePlayerEnemyCollision(
     player: Phaser.Physics.Arcade.Sprite,
     enemy: Phaser.Physics.Arcade.Sprite
@@ -195,6 +227,21 @@ export class Game extends Scene {
       player.setVelocityX(bounceBackVelocity); // Push right
     }
 
+    this.playerHp -= 10; // Reduce HP
+    this.updateHealthBar(); // Update the health bar
+
+    if (this.playerHp <= 0) {
+      this.scene.stop();
+      this.playerHp = 100;
+      this.scene.start("GameOver"); // End the game if HP is 0
+    }
+  }
+
+  handlePlayerSpellCollision(
+    player: Phaser.Physics.Arcade.Sprite,
+    spell: Phaser.Physics.Arcade.Image
+  ) {
+    spell.destroy();
     this.playerHp -= 10; // Reduce HP
     this.updateHealthBar(); // Update the health bar
 
