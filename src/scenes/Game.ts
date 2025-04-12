@@ -22,6 +22,8 @@ export class Game extends Scene {
   keyboardKeys: any;
   playerHp: number = 100;
   healthBar: Phaser.GameObjects.Graphics;
+  playerCanAttack: boolean = true; // Cooldown flag for player attacks
+  attackKey: Phaser.Input.Keyboard.Key; // Key for attacking
 
   constructor() {
     super("Game");
@@ -71,14 +73,17 @@ export class Game extends Scene {
     // Physics
     this.physics.add.collider(this.player, this.platforms);
     this.physics.add.collider(this.enemies, this.platforms);
-    this.physics.add.collider(this.enemies, this.enemies);
-    this.physics.add.collider(this.spells, this.platforms, (spell) =>
-      spell.destroy()
+    this.physics.add.overlap(
+      this.spells,
+      this.enemies,
+      (spell, enemy) => this.handleSpellCollision(spell, enemy),
+      undefined,
+      this
     );
     this.physics.add.overlap(
-      this.player,
       this.spells,
-      this.handlePlayerSpellCollision,
+      this.player,
+      (spell, player) => this.handleSpellCollision(spell, player),
       undefined,
       this
     );
@@ -101,6 +106,7 @@ export class Game extends Scene {
         A: Phaser.Input.Keyboard.KeyCodes.A,
         S: Phaser.Input.Keyboard.KeyCodes.S,
         D: Phaser.Input.Keyboard.KeyCodes.D,
+        F: Phaser.Input.Keyboard.KeyCodes.F,
       });
     }
 
@@ -184,7 +190,30 @@ export class Game extends Scene {
       ) {
         this.player.setVelocityY(PLAYER_JUMP_VELOCITY_Y);
       }
+
+      // Handle player attack
+      if (this.keyboardKeys.F.isDown) {
+        this.castPlayerSpell();
+      }
     }
+  }
+
+  castPlayerSpell() {
+    if (!this.playerCanAttack) return;
+    this.playerCanAttack = false;
+    const spell = this.spells.create(
+      this.player.x + 50,
+      this.player.y,
+      "spell"
+    );
+    spell.setVelocityX(this.player.flipX ? -300 : 300);
+    spell.setGravityY(0);
+    spell.setBounce(0.2);
+    spell.owner = "player"; // Tag the spell as a player spell
+
+    this.time.delayedCall(1000, () => {
+      this.playerCanAttack = true;
+    });
   }
 
   spawnEnemies() {
@@ -196,10 +225,10 @@ export class Game extends Scene {
         Phaser.Math.Between(-ENEMY_MOVEMENT_SPEED, ENEMY_MOVEMENT_SPEED)
       );
       enemy.anims.play("left");
+      enemy.hp = 100; // Add HP to the enemy
 
-      // Assign a timer to this enemy for independent attacks
       this.time.addEvent({
-        delay: Phaser.Math.Between(1500, 3000), // Random delay between attacks
+        delay: Phaser.Math.Between(1500, 3000),
         callback: () => this.enemyAttack(enemy),
         callbackScope: this,
         loop: true,
@@ -208,10 +237,32 @@ export class Game extends Scene {
   }
 
   enemyAttack(enemy: Phaser.Physics.Arcade.Sprite) {
-    if (!enemy.active) return; // Ensure the enemy is still active
-    const spell = this.spells.create(enemy.x, enemy.y, "spell");
-    spell.setVelocityX(enemy.body.velocity.x > 0 ? 300 : -300);
-    spell.setGravityY(0);
+    // if (!enemy.active) return;
+    const spell = this.spells.create(enemy.x + 30, enemy.y - 30, "spell");
+    spell.setVelocityX(-300);
+    spell.setGravityY(1);
+    spell.owner = "enemy"; // Tag the spell as an enemy spell
+  }
+
+  handleSpellCollision(
+    spell: Phaser.Physics.Arcade.Image,
+    target: Phaser.Physics.Arcade.Sprite
+  ) {
+    console.log(target == this.player);
+
+    if (spell.owner === "player" && this.enemies.contains(target)) {
+      console.log(target, "enemy hit");
+      target.hp -= 200; // Reduce enemy HP
+      if (target.hp <= 0) {
+        target.destroy(); // Destroy the enemy if HP is 0
+      }
+    } else if (spell.owner === "enemy" && target === this.player) {
+      console.log(target, "me hit");
+      this.playerHp -= 10; // Reduce player HP
+      this.updateHealthBar();
+      this.evaluateGameOver();
+    }
+    // spell.destroy(); // Destroy the spell after collision
   }
 
   evaluateGameOver() {
