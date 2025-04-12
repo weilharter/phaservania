@@ -1,5 +1,6 @@
 import { Scene } from "phaser";
 import { HEIGHT, WIDTH } from "../main";
+import { Enemy } from "../entities/Enemy";
 
 const PLATFORM_VERTICAL_POSITION = 315;
 const WORLD_BOUNDS_WIDTH = 2000;
@@ -9,15 +10,15 @@ const PLAYER_GRAVITY_Y = 2000;
 const PLAYER_JUMP_VELOCITY_Y = -450; // Adjusted for smaller height
 const PLAYER_MOVEMENT_SPEED = 200; // Adjusted for smaller width
 
-const MAX_ENEMIES = 20; // Reduced due to smaller world size
+const MAX_ENEMIES = 30; // Reduced due to smaller world size
 const ENEMY_GLOBAL_COOLDOWN = 1000;
-const ENEMY_SPAWN_RATE = 250;
+const ENEMY_SPAWN_RATE = 50;
 const ENEMY_MOVEMENT_SPEED = 50; // Adjusted for smaller world
 
 export class Game extends Scene {
-  level: number = 3;
+  level: number = 6;
   levelXp: number = 0;
-  xpToNextLevel: number = 10000;
+  xpToNextLevel: number = 2000;
   isLevelUpEffectActive: boolean = false;
   player: Phaser.Physics.Arcade.Sprite;
   playerHp: number = 100;
@@ -86,7 +87,10 @@ export class Game extends Scene {
     this.createPlatforms();
 
     // Enemies
-    this.enemies = this.physics.add.group();
+    this.enemies = this.physics.add.group({
+      classType: Enemy, // Use the Enemy class for this group
+      runChildUpdate: true, // Automatically call `update` on each enemy
+    });
 
     // Spells
     this.spells = this.physics.add.group();
@@ -111,13 +115,19 @@ export class Game extends Scene {
     this.physics.add.overlap(
       this.enemies,
       this.player,
-      (
-        enemy: Phaser.Physics.Arcade.Sprite,
-        player: Phaser.Physics.Arcade.Sprite
-      ) => {
+      (playerObj, enemyObj) => {
+        const enemy = enemyObj as Enemy;
+        const player = playerObj as Phaser.Physics.Arcade.Sprite;
+
         if (!this.playerIsInvincible) {
-          const damage = Phaser.Math.Between(5, 15); // Damage range
-          this.handlePlayerDamage(damage); // Use the reusable method
+          const damage = Phaser.Math.Between(5, 15);
+          this.handlePlayerDamage(damage);
+        }
+
+        if (this.isLevelUpEffectActive) {
+          const BIG_DMG = 9999;
+          enemy.hit(BIG_DMG);
+          this.showDamageNumber(enemy.x, enemy.y, BIG_DMG, "#ffff00"); // Show damage number
         }
       },
       undefined,
@@ -323,23 +333,21 @@ export class Game extends Scene {
       spawnX = spawnFromLeft
         ? Phaser.Math.Between(0, WORLD_BOUNDS_WIDTH / 2) // Left half of the world
         : Phaser.Math.Between(WORLD_BOUNDS_WIDTH / 2, WORLD_BOUNDS_WIDTH); // Right half of the world
-    } while (Math.abs(spawnX - this.player.x) < 100); // Ensure enemy spawns at least 100px away from the player
+    } while (Math.abs(spawnX - this.player.x) < 300); // Ensure enemy spawns at least 100px away from the player
 
     const spawnY = PLATFORM_VERTICAL_POSITION - 40; // Spawn above the platform
 
     // Create the enemy
-    const enemy = this.enemies.create(spawnX, spawnY, "charmodel");
-    enemy.setCollideWorldBounds(true); // Keep enemies within world bounds
+    const enemy = new Enemy(this, spawnX, spawnY, "charmodel");
     enemy.anims.play("front");
-    enemy.hp = 50; // Adjusted HP for smaller world
-    enemy.isEnemy = true; // Tag as an enemy
-    enemy.setTint(0xff0000); // Red tint for enemies
+    this.enemies.add(enemy); // Add to the enemies group
 
     this.characters.add(enemy); // Add to the characters group
 
+    // Make the enemy move left and right
     let direction = "left";
     this.time.addEvent({
-      delay: 50, // Change direction every 500ms
+      delay: 500, // Change direction every 500ms
       callback: () => {
         if (enemy.active) {
           direction = direction === "left" ? "right" : "left";
@@ -406,12 +414,11 @@ export class Game extends Scene {
     spell: Phaser.Physics.Arcade.Image,
     target: Phaser.Physics.Arcade.Sprite
   ) {
-    if (spell.owner === "player" && target.isEnemy) {
+    if (spell.owner === "player" && target instanceof Enemy) {
       const damage = this.calculateDamage(target);
-      target.hp -= damage; // Reduce enemy HP
+      target.hit(damage); // Use the `hit` method to reduce HP
       this.showDamageNumber(target.x, target.y, damage, "#ffff00"); // Show damage number
       if (target.hp <= 0) {
-        target.destroy(); // Destroy the enemy if HP is 0
         this.gainExperience(1000); // Gain 1000 XP for killing an enemy
       }
       spell.destroy();
@@ -428,7 +435,7 @@ export class Game extends Scene {
     if (character === this.player) {
       // Damage range for enemies hitting the player
       return Phaser.Math.Between(5, 10);
-    } else if (character.isEnemy) {
+    } else if (character instanceof Enemy) {
       // Damage range for the player hitting enemies
       return Phaser.Math.Between(100, 200);
     }
