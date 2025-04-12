@@ -82,6 +82,9 @@ export class Game extends Scene {
 
     // Physics
     this.physics.add.collider(this.characters, this.platforms);
+    this.physics.add.collider(this.spells, this.platforms, (spell) => {
+      spell.destroy(); // Destroy the spell on collision with platforms
+    });
     this.physics.add.collider(
       this.characters,
       this.characters,
