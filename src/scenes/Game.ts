@@ -47,9 +47,9 @@ export class Game extends Scene {
       frameWidth: 19,
       frameHeight: 34,
     });
-    this.load.spritesheet("projectile-spell", "assets/projectiles.png", {
-      frameWidth: 64,
-      frameHeight: 64,
+    this.load.spritesheet("projectile-spell", "assets/lightning-bolt.png", {
+      frameWidth: 256,
+      frameHeight: 128,
     });
     this.load.spritesheet("levelUpEffect", "assets/lightning-shield.png", {
       frameWidth: 128,
@@ -102,7 +102,11 @@ export class Game extends Scene {
     // Physics
     this.physics.add.collider(this.characters, this.platforms);
     this.physics.add.overlap(this.spells, this.platforms, (spell) => {
-      spell.destroy(); // Destroy the spell on collision with platforms
+      this.time.delayedCall(1000, () => {
+        if (spell.active) {
+          spell.destroy(); // Destroy the spell after 1 second if it still exists
+        }
+      });
     });
     this.physics.add.overlap(
       this.spells,
@@ -253,8 +257,8 @@ export class Game extends Scene {
       this.anims.create({
         key: "spellAnim",
         frames: this.anims.generateFrameNumbers("projectile-spell", {
-          start: 3,
-          end: 5,
+          start: 0,
+          end: 3,
         }),
         frameRate: 12,
       });
@@ -312,7 +316,9 @@ export class Game extends Scene {
     const spellXOffset = direction * 25; // Offset the spell's starting position based on direction
 
     // Y-offsets for multiple projectiles (optional)
-    const offsets = Array.from({ length: this.level }, (_, i) => -40 - i * 10); // Generate offsets based on level
+    // const offsets = Array.from({ length: this.level }, (_, i) => -20 - i * 10); // Generate offsets based on level
+
+    const offsets = [-30, -35, -40];
 
     offsets.forEach((offset) => {
       // Create the spell
@@ -321,6 +327,8 @@ export class Game extends Scene {
         this.player.y + offset + 30, // Adjust Y position for spread
         "projectile-spell"
       );
+
+      spell.setScale(0.3);
 
       if (direction === -1) {
         spell.flipX = true;
@@ -332,14 +340,14 @@ export class Game extends Scene {
       spell.anims.play("spellAnim");
 
       // Set velocity and reduce gravity for a longer flight
-      const speed = 1000; // Moderate speed
-      const gravity = -3000; // Negative gravity to make the arrow fly farther
+      const speed = 500; // Moderate speed
+      const gravity = -1900; // Negative gravity to make the arrow fly farther
       spell.setVelocityX(direction * speed);
       spell.setGravityY(gravity);
       spell.owner = "player"; // Tag the spell as a player spell
 
       // Destroy the spell after 3 seconds
-      this.time.delayedCall(2000, () => {
+      this.time.delayedCall(3000, () => {
         if (spell.active) spell.destroy();
       });
     });
@@ -413,7 +421,7 @@ export class Game extends Scene {
     spell.anims.play("spellAnim");
 
     // Cleanup spells
-    this.time.delayedCall(2000, () => {
+    this.time.delayedCall(3000, () => {
       spell.destroy();
     });
   }
@@ -463,7 +471,7 @@ export class Game extends Scene {
   ) {
     if (spell.owner === "player" && target instanceof Enemy) {
       this.hitTarget(target);
-      spell.destroy();
+      // spell.destroy(); pierce mode
     } else if (spell.owner === "enemy" && target === this.player) {
       if (!this.playerIsInvincible) {
         const damage = this.calculateDamage(this.player);
