@@ -14,14 +14,111 @@ const ENEMY_GLOBAL_COOLDOWN = 1000;
 const ENEMY_SPAWN_RATE = 500;
 const ENEMY_MOVEMENT_SPEED = 100;
 
+abstract class Character extends Phaser.Physics.Arcade.Sprite {
+  hp: number;
+  isPlayer: boolean;
+
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    texture: string,
+    hp: number,
+    isPlayer: boolean
+  ) {
+    super(scene, x, y, texture);
+    this.hp = hp;
+    this.isPlayer = isPlayer;
+    scene.add.existing(this);
+    scene.physics.add.existing(this);
+    this.setCollideWorldBounds(true);
+  }
+
+  takeDamage(amount: number) {
+    if (this.isPlayer) {
+      // Player-specific damage logic (with invincibility)
+      const player = this as Player; // Type assertion for clarity
+      if (!player.isInvincible) {
+        player.hp -= amount;
+        player.isInvincible = true;
+
+        // Blink effect for invincibility
+        this.scene.tweens.add({
+          targets: this,
+          alpha: 0,
+          duration: 100,
+          ease: "Linear",
+          yoyo: true,
+          repeat: 5,
+          onComplete: () => {
+            this.setAlpha(1);
+            player.isInvincible = false;
+          },
+        });
+
+        if (player.hp <= 0) {
+          this.onDeath();
+        }
+      }
+    } else {
+      // NPC-specific damage logic (no invincibility)
+      this.hp -= amount;
+      if (this.hp <= 0) {
+        this.onDeath();
+      }
+    }
+  }
+
+  protected abstract onDeath(): void;
+}
+
+class Player extends Character {
+  isInvincible: boolean = false;
+
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, "dude", 100, true); // `isPlayer` is true for Player
+    this.setGravityY(PLAYER_GRAVITY_Y);
+  }
+
+  protected onDeath() {
+    this.scene.scene.stop();
+    this.scene.scene.start("GameOver");
+  }
+}
+
+class Enemy extends Character {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, "dude", 100, false); // `isPlayer` is false for Enemy
+    this.setTint(0xff0000); // Red tint for enemies
+  }
+
+  protected onDeath() {
+    this.destroy();
+  }
+}
+
+class Spell extends Phaser.Physics.Arcade.Sprite {
+  owner: "player" | "enemy";
+
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    owner: "player" | "enemy"
+  ) {
+    super(scene, x, y, "spell");
+    scene.add.existing(this);
+    scene.physics.add.existing(this);
+    this.owner = owner;
+    this.anims.play("spellAnim");
+  }
+}
+
 export class Game extends Scene {
-  player: Phaser.Physics.Arcade.Sprite;
-  playerHp: number = 100;
-  playerIsInvincible: boolean = false; // New property for invincibility
-  platforms: Phaser.Physics.Arcade.Group;
+  player: Player;
   enemies: Phaser.Physics.Arcade.Group;
   spells: Phaser.Physics.Arcade.Group;
-  characters: Phaser.Physics.Arcade.Group;
+  platforms: Phaser.Physics.Arcade.Group;
   cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
   keyboardKeys: any;
   healthBar: Phaser.GameObjects.Graphics;
@@ -53,9 +150,7 @@ export class Game extends Scene {
       .setOrigin(0, 0);
 
     // Player
-    this.player = this.physics.add.sprite(100, 400, "dude");
-    this.player.setCollideWorldBounds(true);
-    this.player.setGravityY(PLAYER_GRAVITY_Y);
+    this.player = new Player(this, 100, 400);
 
     // Expand world bounds
     this.physics.world.setBounds(0, 0, WORLD_BOUNDS_WIDTH, HEIGHT);
@@ -72,24 +167,32 @@ export class Game extends Scene {
     this.createPlatforms();
 
     // Enemies
-    this.enemies = this.physics.add.group();
+    this.enemies = this.physics.add.group({
+      classType: Enemy,
+    });
 
     // Spells
-    this.spells = this.physics.add.group();
-
-    // Characters group
-    this.characters = this.physics.add.group();
-    this.characters.add(this.player);
+    this.spells = this.physics.add.group({
+      classType: Spell,
+    });
 
     // Physics
-    this.physics.add.collider(this.characters, this.platforms);
+    this.physics.add.collider(this.player, this.platforms);
+    this.physics.add.collider(this.enemies, this.platforms);
     this.physics.add.overlap(this.spells, this.platforms, (spell) => {
       spell.destroy(); // Destroy the spell on collision with platforms
     });
-    this.physics.add.collider(this.characters, this.characters);
+    this.physics.add.collider(this.player, this.enemies);
     this.physics.add.overlap(
       this.spells,
-      this.characters,
+      this.enemies,
+      this.handleSpellCollision,
+      undefined,
+      this
+    );
+    this.physics.add.overlap(
+      this.spells,
+      this.player,
       this.handleSpellCollision,
       undefined,
       this
@@ -205,43 +308,22 @@ export class Game extends Scene {
       this.player.anims.play("right", true);
     }
   }
+
   castPlayerSpell() {
     if (!this.playerCanAttack) return;
 
     this.playerCanAttack = false;
+    const direction = this.player.flipX ? -1 : 1;
+    const spell = new Spell(
+      this,
+      this.player.x + direction * 25,
+      this.player.y,
+      "player"
+    );
+    spell.setVelocityX(direction * 1000);
 
-    // Determine direction based on the player's facing direction
-    const direction = this.player.anims.currentAnim?.key == "left" ? -1 : 1; // -1 for left, 1 for right
-    const spellXOffset = direction * 25; // Offset the spell's starting position based on direction
+    this.spells.add(spell);
 
-    // Y-offsets for multiple projectiles (optional)
-    const offsets = [-60, -70, -80]; // Adjust as needed for spread
-
-    offsets.forEach((offset) => {
-      // Create the spell
-      const spell = this.spells.create(
-        this.player.x + spellXOffset, // Adjust starting X position
-        this.player.y + offset, // Adjust Y position for spread
-        "spell"
-      );
-
-      // Play the spell animation
-      spell.anims.play("spellAnim");
-
-      // Set velocity and reduce gravity for a longer flight
-      const speed = 1000; // Moderate speed
-      const gravity = -1000; // Negative gravity to make the arrow fly farther
-      spell.setVelocityX(direction * speed);
-      spell.setGravityY(gravity);
-      spell.owner = "player"; // Tag the spell as a player spell
-
-      // Destroy the spell after 3 seconds
-      this.time.delayedCall(3000, () => {
-        if (spell.active) spell.destroy();
-      });
-    });
-
-    // Reset the attack cooldown
     this.time.delayedCall(PLAYER_GLOBAL_COOLDOWN, () => {
       this.playerCanAttack = true;
     });
@@ -264,94 +346,22 @@ export class Game extends Scene {
     const spawnY = PLATFORM_VERTICAL_POSITION - 50; // Spawn above the platform
 
     // Create the enemy
-    const enemy = this.enemies.create(spawnX, spawnY, "dude");
-    enemy.setCollideWorldBounds(true); // Keep enemies within world bounds
-    enemy.anims.play("front");
-    enemy.hp = 100; // Add HP to the enemy
-    enemy.isEnemy = true; // Tag as an enemy
-    enemy.setTint(0xff0000); // Red tint for enemies
-
-    this.characters.add(enemy); // Add to the characters group
-
-    // Schedule the next enemy spawn
-    this.time.addEvent({
-      delay: Phaser.Math.Between(ENEMY_SPAWN_RATE, ENEMY_SPAWN_RATE * 2), // Randomize spawn delay
-      callback: this.spawnEnemies,
-      callbackScope: this,
-    });
-
-    // Enemy attack timer
-    this.time.addEvent({
-      delay: ENEMY_GLOBAL_COOLDOWN,
-      callback: () => this.enemyAttack(enemy),
-      callbackScope: this,
-      loop: true,
-    });
+    const enemy = new Enemy(this, spawnX, spawnY);
+    this.enemies.add(enemy);
   }
 
-  enemyAttack(enemy: Phaser.Physics.Arcade.Sprite) {
-    if (!enemy.active) return;
-
-    // Calculate direction vector towards the player
-    const direction = new Phaser.Math.Vector2(
-      this.player.x - enemy.x,
-      this.player.y - enemy.y
-    ).normalize();
-
-    // Create the spell
-    const spell = this.spells.create(enemy.x, enemy.y - 60, "spell");
-    spell.setVelocity(direction.x * 1000, direction.y * 1000); // Set velocity towards the player
-    const gravity = -1000; // Negative gravity to make the arrow fly farther
-    spell.setGravityY(gravity);
-    spell.setTint(0xff0000); // Red tint
-    spell.owner = "enemy"; // Tag the spell as an enemy spell
-
-    spell.anims.play("spellAnim");
-
-    // Cleanup spells
-    this.time.delayedCall(2000, () => {
-      spell.destroy();
-    });
-  }
-
-  handleSpellCollision(
-    spell: Phaser.Physics.Arcade.Image,
-    target: Phaser.Physics.Arcade.Sprite
-  ) {
-    if (spell.owner === "player" && target.isEnemy) {
+  handleSpellCollision(spell: Spell, target: Phaser.Physics.Arcade.Sprite) {
+    if (spell.owner === "player" && target instanceof Enemy) {
       const damage = this.calculateDamage(target);
-      target.hp -= damage; // Reduce enemy HP
+      target.takeDamage(damage); // Reduce enemy HP
       this.showDamageNumber(target.x, target.y, damage); // Show damage number
-      if (target.hp <= 0) {
-        target.destroy(); // Destroy the enemy if HP is 0
-      }
       spell.destroy();
     } else if (spell.owner === "enemy" && target === this.player) {
-      if (!this.playerIsInvincible) {
+      if (!this.player.isInvincible) {
         const damage = this.calculateDamage(this.player);
-        this.playerHp -= damage; // Reduce player HP
+        this.player.takeDamage(damage); // Reduce player HP
         this.showDamageNumber(this.player.x, this.player.y, damage, "#ff0000"); // Show damage number
         this.updateHealthBar();
-        this.evaluateGameOver();
-
-        // Make the player blink
-        this.playerIsInvincible = true;
-        this.tweens.add({
-          targets: this.player,
-          alpha: 0,
-          duration: 100,
-          ease: "Linear",
-          yoyo: true,
-          repeat: 1, // Blink 5 times
-          onComplete: () => {
-            this.player.setAlpha(1); // Ensure player is fully visible after blinking
-          },
-        });
-
-        // Grant invincibility for 500 ms
-        this.time.delayedCall(500, () => {
-          this.playerIsInvincible = false;
-        });
       }
       spell.destroy();
     }
@@ -361,7 +371,7 @@ export class Game extends Scene {
     if (character === this.player) {
       // Damage range for enemies hitting the player
       return Phaser.Math.Between(5, 10);
-    } else if (character.isEnemy) {
+    } else if (character instanceof Enemy) {
       // Damage range for the player hitting enemies
       return Phaser.Math.Between(13, 50);
     }
@@ -372,10 +382,10 @@ export class Game extends Scene {
     x: number,
     y: number,
     damage: number,
-    color: string = "#ff0000"
+    color: string = "yellow"
   ) {
     // Create the damage number text
-    const damageText = this.add.text(x, y, `-${damage}`, {
+    const damageText = this.add.text(x, y, `${damage}`, {
       font: "16px Arial",
       color: color,
       stroke: "#000000",
@@ -398,17 +408,9 @@ export class Game extends Scene {
   updateHealthBar() {
     this.healthBar.clear();
     this.healthBar.fillStyle(0xff0000, 1); // Red color for health
-    this.healthBar.fillRect(16, 16, this.playerHp * 2, 20); // Width proportional to HP
+    this.healthBar.fillRect(16, 16, this.player.hp * 2, 20); // Width proportional to HP
     this.healthBar.lineStyle(1, 0x000); // White border
     this.healthBar.strokeRect(16, 16, 200, 20); // Fixed border width
-  }
-
-  evaluateGameOver() {
-    if (this.playerHp <= 0) {
-      this.scene.stop();
-      this.playerHp = 100;
-      this.scene.start("GameOver"); // End the game if HP is 0
-    }
   }
 
   update() {
@@ -420,27 +422,25 @@ export class Game extends Scene {
     }
 
     // Ensure enemies keep moving
-    this.enemies
-      .getChildren()
-      .forEach((enemy: Phaser.Physics.Arcade.Sprite) => {
-        if (enemy.active) {
-          const distanceToPlayer = Math.abs(this.player.x - enemy.x);
-          if (distanceToPlayer < 160) {
-            // Move away from the player if too close
-            const directionX = this.player.x > enemy.x ? -1 : 1; // Move away from the player's X position
-            enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
-          } else if (distanceToPlayer > 300) {
-            // Move closer to the player if too far
-            const directionX = this.player.x > enemy.x ? 1 : -1; // Move towards the player's X position
-            enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
-          } else {
-            enemy.setVelocityX(0); // Stop moving if within the desired range
-          }
-          // Make the enemy jump randomly
-          if (enemy.body?.touching.down && Phaser.Math.Between(0, 200) === 0) {
-            enemy.setVelocityY(Phaser.Math.Between(-200, -800));
-          }
+    this.enemies.getChildren().forEach((enemy: Enemy) => {
+      if (enemy.active) {
+        const distanceToPlayer = Math.abs(this.player.x - enemy.x);
+        if (distanceToPlayer < 160) {
+          // Move away from the player if too close
+          const directionX = this.player.x > enemy.x ? -1 : 1; // Move away from the player's X position
+          enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
+        } else if (distanceToPlayer > 300) {
+          // Move closer to the player if too far
+          const directionX = this.player.x > enemy.x ? 1 : -1; // Move towards the player's X position
+          enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
+        } else {
+          enemy.setVelocityX(0); // Stop moving if within the desired range
         }
-      });
+        // Make the enemy jump randomly
+        if (enemy.body?.touching.down && Phaser.Math.Between(0, 200) === 0) {
+          enemy.setVelocityY(Phaser.Math.Between(-200, -800));
+        }
+      }
+    });
   }
 }
