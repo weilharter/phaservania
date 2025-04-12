@@ -32,13 +32,17 @@ export class Game extends Scene {
   }
 
   preload() {
+    this.load.image("sky", "assets/background/sky.png");
     this.load.image("ground", "assets/platform.png");
+
     this.load.spritesheet("dude", "assets/dude.png", {
       frameWidth: 32,
       frameHeight: 48,
     });
-    this.load.image("sky", "assets/background/sky.png");
-    this.load.image("spell", "assets/bomb.png");
+    this.load.spritesheet("spell", "assets/spell.png", {
+      frameWidth: 16,
+      frameHeight: 16,
+    });
   }
 
   create() {
@@ -165,6 +169,16 @@ export class Game extends Scene {
       });
     }
 
+    // Add the spell animation
+    if (!this.anims.exists("spellAnim")) {
+      this.anims.create({
+        key: "spellAnim",
+        frames: this.anims.generateFrameNumbers("spell", { start: 0, end: 5 }), // Adjust frame range as needed
+        frameRate: 40,
+        repeat: 0,
+      });
+    }
+
     this.player.anims.play("front");
   }
 
@@ -188,11 +202,6 @@ export class Game extends Scene {
       ) {
         this.player.setVelocityY(PLAYER_JUMP_VELOCITY_Y);
       }
-
-      // Handle player attack
-      this.input.on("pointerdown", () => {
-        this.castPlayerSpell();
-      });
     }
   }
 
@@ -206,7 +215,7 @@ export class Game extends Scene {
     const spellXOffset = direction * 20; // Offset the spell's starting position based on direction
 
     // Y-offsets for multiple projectiles (optional)
-    const offsets = [-15, 0, 15]; // Adjust as needed for spread
+    const offsets = [-50, -70, -30]; // Adjust as needed for spread
 
     offsets.forEach((offset) => {
       // Create the spell
@@ -216,10 +225,12 @@ export class Game extends Scene {
         "spell"
       );
 
+      // Play the spell animation
+      spell.anims.play("spellAnim");
+
       // Set velocity based on direction
-      const speed = 2000; // Adjust the speed as needed
+      const speed = 1500; // Adjust the speed as needed
       spell.setVelocityX(direction * speed);
-      spell.setGravityY(0); // No gravity for the spell
       spell.owner = "player"; // Tag the spell as a player spell
 
       // Destroy the spell after 2 seconds
@@ -292,6 +303,8 @@ export class Game extends Scene {
     spell.setTint(0xff0000); // Red tint
     spell.owner = "enemy"; // Tag the spell as an enemy spell
 
+    spell.anims.play("spellAnim");
+
     // Cleanup spells
     this.time.delayedCall(2000, () => {
       spell.destroy();
@@ -351,6 +364,11 @@ export class Game extends Scene {
 
     // Make the player face the cursor
     this.updatePlayerDirection();
+
+    // Handle player attack while pointer is pressed
+    if (this.input.activePointer.isDown) {
+      this.castPlayerSpell();
+    }
 
     // Ensure enemies keep moving
     this.enemies
