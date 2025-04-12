@@ -91,11 +91,26 @@ export class Game extends Scene {
     this.physics.add.overlap(this.spells, this.platforms, (spell) => {
       spell.destroy(); // Destroy the spell on collision with platforms
     });
-    this.physics.add.collider(this.characters, this.characters);
     this.physics.add.overlap(
       this.spells,
       this.characters,
       this.handleSpellCollision,
+      undefined,
+      this
+    );
+    // Handle collisions between enemies and the player
+    this.physics.add.overlap(
+      this.enemies,
+      this.player,
+      (
+        enemy: Phaser.Physics.Arcade.Sprite,
+        player: Phaser.Physics.Arcade.Sprite
+      ) => {
+        if (!this.playerIsInvincible) {
+          const damage = Phaser.Math.Between(5, 15); // Damage range
+          this.handlePlayerDamage(damage); // Use the reusable method
+        }
+      },
       undefined,
       this
     );
@@ -231,6 +246,7 @@ export class Game extends Scene {
       this.player.anims.play("right", true);
     }
   }
+
   castPlayerSpell() {
     if (!this.playerCanAttack) return;
 
@@ -285,7 +301,7 @@ export class Game extends Scene {
       spawnX = spawnFromLeft
         ? Phaser.Math.Between(0, WORLD_BOUNDS_WIDTH / 2) // Left half of the world
         : Phaser.Math.Between(WORLD_BOUNDS_WIDTH / 2, WORLD_BOUNDS_WIDTH); // Right half of the world
-    } while (Math.abs(spawnX - this.player.x) < 450); // Ensure enemy spawns at least 200px away from the player
+    } while (Math.abs(spawnX - this.player.x) < 450); // Ensure enemy spawns at least 450px away from the player
 
     const spawnY = PLATFORM_VERTICAL_POSITION - 50; // Spawn above the platform
 
@@ -299,17 +315,15 @@ export class Game extends Scene {
 
     this.characters.add(enemy); // Add to the characters group
 
-    // Schedule the next enemy spawn
+    let direction = "left";
     this.time.addEvent({
-      delay: Phaser.Math.Between(ENEMY_SPAWN_RATE, ENEMY_SPAWN_RATE * 2), // Randomize spawn delay
-      callback: this.spawnEnemies,
-      callbackScope: this,
-    });
-
-    // Enemy attack timer
-    this.time.addEvent({
-      delay: ENEMY_GLOBAL_COOLDOWN,
-      callback: () => this.enemyAttack(enemy),
+      delay: 50, // Change direction every 500ms
+      callback: () => {
+        if (enemy.active) {
+          direction = direction === "left" ? "right" : "left";
+          enemy.anims.play(direction, true);
+        }
+      },
       callbackScope: this,
       loop: true,
     });
@@ -340,6 +354,32 @@ export class Game extends Scene {
     });
   }
 
+  handlePlayerDamage(damage: number) {
+    this.playerHp -= damage; // Reduce player HP
+    this.showDamageNumber(this.player.x, this.player.y, damage);
+    this.updateHealthBar();
+    this.evaluateGameOver();
+
+    // Make the player temporarily invincible
+    this.playerIsInvincible = true;
+    this.tweens.add({
+      targets: this.player,
+      alpha: 0,
+      duration: 100,
+      ease: "Linear",
+      yoyo: true,
+      repeat: 5, // Blink 5 times
+      onComplete: () => {
+        this.player.setAlpha(1); // Ensure player is fully visible after blinking
+      },
+    });
+
+    // Grant invincibility for 1 second
+    this.time.delayedCall(1000, () => {
+      this.playerIsInvincible = false;
+    });
+  }
+
   handleSpellCollision(
     spell: Phaser.Physics.Arcade.Image,
     target: Phaser.Physics.Arcade.Sprite
@@ -347,7 +387,7 @@ export class Game extends Scene {
     if (spell.owner === "player" && target.isEnemy) {
       const damage = this.calculateDamage(target);
       target.hp -= damage; // Reduce enemy HP
-      this.showDamageNumber(target.x, target.y, damage); // Show damage number
+      this.showDamageNumber(target.x, target.y, damage, "#ffff00"); // Show damage number
       if (target.hp <= 0) {
         target.destroy(); // Destroy the enemy if HP is 0
         this.gainExperience(1000); // Gain 1000 XP for killing an enemy
@@ -356,29 +396,7 @@ export class Game extends Scene {
     } else if (spell.owner === "enemy" && target === this.player) {
       if (!this.playerIsInvincible) {
         const damage = this.calculateDamage(this.player);
-        this.playerHp -= damage; // Reduce player HP
-        this.showDamageNumber(this.player.x, this.player.y, damage, "#ff0000"); // Show damage number
-        this.updateHealthBar();
-        this.evaluateGameOver();
-
-        // Make the player blink
-        this.playerIsInvincible = true;
-        this.tweens.add({
-          targets: this.player,
-          alpha: 0,
-          duration: 100,
-          ease: "Linear",
-          yoyo: true,
-          repeat: 1, // Blink 5 times
-          onComplete: () => {
-            this.player.setAlpha(1); // Ensure player is fully visible after blinking
-          },
-        });
-
-        // Grant invincibility for 500 ms
-        this.time.delayedCall(500, () => {
-          this.playerIsInvincible = false;
-        });
+        this.handlePlayerDamage(damage); // Use the reusable method
       }
       spell.destroy();
     }
@@ -402,7 +420,7 @@ export class Game extends Scene {
     color: string = "#ff0000"
   ) {
     // Create the damage number text
-    const damageText = this.add.text(x, y, `-${damage}`, {
+    const damageText = this.add.text(x, y, `${damage}`, {
       font: "16px Arial",
       color: color,
       stroke: "#000000",
@@ -469,6 +487,8 @@ export class Game extends Scene {
 
   update() {
     this.handleMovement();
+    this.updateHealthBar();
+    this.evaluateGameOver();
 
     // Handle player attack while pointer is pressed
     if (this.input.activePointer.isDown) {
@@ -481,11 +501,11 @@ export class Game extends Scene {
       .forEach((enemy: Phaser.Physics.Arcade.Sprite) => {
         if (enemy.active) {
           const distanceToPlayer = Math.abs(this.player.x - enemy.x);
-          if (distanceToPlayer < 160) {
+          if (distanceToPlayer < 20) {
             // Move away from the player if too close
             const directionX = this.player.x > enemy.x ? -1 : 1; // Move away from the player's X position
             enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
-          } else if (distanceToPlayer > 300) {
+          } else if (distanceToPlayer > 20) {
             // Move closer to the player if too far
             const directionX = this.player.x > enemy.x ? 1 : -1; // Move towards the player's X position
             enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
