@@ -1,12 +1,14 @@
 import { Scene } from "phaser";
 import { HEIGHT, WIDTH } from "../main";
+import { Player } from "../entities/Player";
+import { Character } from "../entities/Character";
 import { Enemy } from "../entities/Enemy";
 
 const PLATFORM_VERTICAL_POSITION = 315;
 const WORLD_BOUNDS_WIDTH = 2000;
 
 const PLAYER_GLOBAL_COOLDOWN = 250;
-const PLAYER_GRAVITY_Y = 2000;
+export const PLAYER_GRAVITY_Y = 2000;
 const PLAYER_JUMP_VELOCITY_Y = -450; // Adjusted for smaller height
 const PLAYER_MOVEMENT_SPEED = 200; // Adjusted for smaller width
 
@@ -20,8 +22,7 @@ export class Game extends Scene {
   levelXp: number = 0;
   xpToNextLevel: number = 2000;
   isLevelUpEffectActive: boolean = false;
-  player: Phaser.Physics.Arcade.Sprite;
-  hp: number = 100;
+  player: Player;
   playerIsInvincible: boolean = false;
   platforms: Phaser.Physics.Arcade.Group;
   enemies: Phaser.Physics.Arcade.Group;
@@ -68,20 +69,21 @@ export class Game extends Scene {
     backgroundMusic.play();
 
     // Player
-    this.player = this.physics.add.sprite(
+    this.player = new Player(
+      this,
       WORLD_BOUNDS_WIDTH / 2,
       HEIGHT - 60,
       "charmodel"
     );
-    this.player.setCollideWorldBounds(true);
-    this.player.setGravityY(PLAYER_GRAVITY_Y);
+    this.cameras.main.startFollow(this.player, true, 5, 5);
+
+    // Characters group
+    this.characters = this.physics.add.group();
+    this.characters.add(this.player);
 
     // Expand world bounds
     this.physics.world.setBounds(0, 0, WORLD_BOUNDS_WIDTH, HEIGHT);
     this.cameras.main.setBounds(0, 0, WORLD_BOUNDS_WIDTH, HEIGHT);
-
-    // Camera
-    this.cameras.main.startFollow(this.player, true, 5, 5);
 
     // Platforms
     this.platforms = this.physics.add.group({
@@ -98,10 +100,6 @@ export class Game extends Scene {
 
     // Spells
     this.spells = this.physics.add.group();
-
-    // Characters group
-    this.characters = this.physics.add.group();
-    this.characters.add(this.player);
 
     // Physics
     this.physics.add.collider(this.characters, this.platforms);
@@ -284,32 +282,34 @@ export class Game extends Scene {
   }
 
   handleMovement() {
-    if (this.input.keyboard) {
-      if (this.cursorKeys.left.isDown || this.keyboardKeys.A.isDown) {
-        this.player.setVelocityX(-PLAYER_MOVEMENT_SPEED);
-      } else if (this.cursorKeys.right.isDown || this.keyboardKeys.D.isDown) {
-        this.player.setVelocityX(PLAYER_MOVEMENT_SPEED);
+    try {
+      if (this.input.keyboard) {
+        if (this.cursorKeys.left.isDown || this.keyboardKeys.A.isDown) {
+          this.player.setVelocityX(-PLAYER_MOVEMENT_SPEED);
+        } else if (this.cursorKeys.right.isDown || this.keyboardKeys.D.isDown) {
+          this.player.setVelocityX(PLAYER_MOVEMENT_SPEED);
+        } else {
+          this.player.setVelocityX(0);
+        }
+        if (
+          (this.cursorKeys.space?.isDown ||
+            this.cursorKeys.up?.isDown ||
+            this.keyboardKeys.W.isDown) &&
+          this.player.body?.touching.down
+        ) {
+          this.sound.play("jump", { volume: 0.2 });
+          this.player.setVelocityY(PLAYER_JUMP_VELOCITY_Y);
+        }
+      }
+      const pointer = this.input.activePointer;
+      if (pointer.worldX < this.player.x) {
+        this.player.anims.play("left", true);
+        this.player.flipX = true;
       } else {
-        this.player.setVelocityX(0);
+        this.player.anims.play("right", true);
+        this.player.flipX = false;
       }
-      if (
-        (this.cursorKeys.space?.isDown ||
-          this.cursorKeys.up?.isDown ||
-          this.keyboardKeys.W.isDown) &&
-        this.player.body?.touching.down
-      ) {
-        this.sound.play("jump", { volume: 0.2 });
-        this.player.setVelocityY(PLAYER_JUMP_VELOCITY_Y);
-      }
-    }
-    const pointer = this.input.activePointer;
-    if (pointer.worldX < this.player.x) {
-      this.player.anims.play("left", true);
-      this.player.flipX = true;
-    } else {
-      this.player.anims.play("right", true);
-      this.player.flipX = false;
-    }
+    } catch (error) {}
   }
 
   castPlayerSpell() {
@@ -388,7 +388,6 @@ export class Game extends Scene {
     const enemy = new Enemy(this, spawnX, spawnY, "charmodel");
     enemy.anims.play("front");
     this.enemies.add(enemy); // Add to the enemies group
-
     this.characters.add(enemy); // Add to the characters group
 
     // Make the enemy move left and right
@@ -432,42 +431,19 @@ export class Game extends Scene {
   }
 
   handlePlayerDamage(damage: number) {
-    // Make the player temporarily invincible
-    this.playerIsInvincible = true;
-
-    this.sound.play("tap");
-
-    this.hp -= damage; // Reduce player HP
+    this.player.hit(damage); // Use the `hit` method from the `Character` base class
     this.showDamageNumber(this.player.x, this.player.y, damage);
     this.updateHealthBar();
     this.evaluateGameOver();
-
-    this.tweens.add({
-      targets: this.player,
-      alpha: 0,
-      duration: 50,
-      ease: "Linear",
-      yoyo: true,
-      repeat: 2, // Blink 5 times
-      onComplete: () => {
-        this.player.setAlpha(1); // Ensure player is fully visible after blinking
-      },
-    });
-
-    // Grant invincibility for 1 second
-    this.time.delayedCall(1000, () => {
-      this.playerIsInvincible = false;
-    });
   }
 
-  hitTarget(target: Enemy, damage: number = 0) {
+  hitTarget(target: Character, damage: number = 0) {
     if (damage === 0) {
       damage = this.calculateDamage(target); // Calculate damage if not provided
     }
     target.hit(damage); // Use the `hit` method to reduce HP
     this.showDamageNumber(target.x, target.y, damage, "#ffff00"); // Show damage number
-    // FIXME: make player generic class & compatible with target.hp
-    if (target.hp <= 0) {
+    if (target.hp <= 0 && target instanceof Enemy) {
       this.gainExperience(1000); // Gain 1000 XP for killing an enemy
     }
   }
@@ -478,12 +454,9 @@ export class Game extends Scene {
   ) {
     if (spell.owner === "player" && target instanceof Enemy) {
       this.hitTarget(target);
-      // spell.destroy(); pierce mode
-    } else if (spell.owner === "enemy" && target === this.player) {
-      if (!this.playerIsInvincible) {
-        const damage = this.calculateDamage(this.player);
-        this.handlePlayerDamage(damage); // Use the reusable method
-      }
+      spell.destroy();
+    } else if (spell.owner === "enemy" && target instanceof Player) {
+      this.hitTarget(target);
       spell.destroy();
     }
   }
@@ -529,7 +502,7 @@ export class Game extends Scene {
   updateHealthBar() {
     this.healthBar.clear();
     this.healthBar.fillStyle(0xff0000, 1); // Red color for health
-    this.healthBar.fillRect(8, 8, this.hp * 0.8, 5); // Adjusted width and height
+    this.healthBar.fillRect(8, 8, this.player.hp * 0.8, 5); // Adjusted width and height
     this.healthBar.lineStyle(1, 0x000); // Black border
     this.healthBar.strokeRect(8, 8, 80, 5); // Adjusted fixed border width
   }
@@ -558,7 +531,7 @@ export class Game extends Scene {
     if (this.levelXp >= this.xpToNextLevel) {
       this.levelXp -= this.xpToNextLevel;
       this.level++;
-      this.hp = 100; // Restore player HP on level-up
+      this.player.hp = 100; // Restore player HP on level-up
       this.xpToNextLevel += 5000; // Increase XP required for the next level
 
       // Trigger level-up effect
@@ -603,21 +576,22 @@ export class Game extends Scene {
   }
 
   evaluateGameOver() {
-    if (this.hp <= 0) {
+    if (this.player.hp <= 0) {
       this.scene.stop();
-      this.hp = 100;
+      this.player.hp = 100;
       this.scene.start("GameOver", { level: this.level }); // End the game if HP is 0
+      this.sound.stopAll();
     }
   }
 
   update() {
+    this.evaluateGameOver();
     this.handleMovement();
     this.updateHealthBar();
-    this.evaluateGameOver();
 
     // Reset the player if they fall out of the world
     if (this.player.y > HEIGHT) {
-      this.hp = 0; // Set HP to 0 to trigger game over
+      this.player.hp = 0; // Set HP to 0 to trigger game over
       this.evaluateGameOver();
     }
 

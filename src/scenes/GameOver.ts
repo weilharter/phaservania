@@ -24,6 +24,8 @@ export class GameOver extends Scene {
     this.background = this.add.image(centerX, centerY, "background");
     this.background.setAlpha(0.5);
 
+    this.scene.stop("Game");
+
     this.gameover_text = this.add.text(
       centerX,
       centerY,
