@@ -40,13 +40,6 @@ export class Game extends Scene {
   }
 
   preload() {
-    this.load.image("sky", "assets/background/sky.png");
-    this.load.image("ground", "assets/platform.png");
-    this.load.audio("tap", "assets/audio/tap.wav");
-    this.load.audio("music", "assets/audio/music.wav");
-    this.load.audio("lightning-shield", "assets/audio/lightning-shield.wav");
-    this.load.audio("jump", "assets/audio/jump.wav");
-
     this.load.spritesheet("charmodel", "assets/char-idle.png", {
       frameWidth: 19,
       frameHeight: 34,
@@ -272,6 +265,7 @@ export class Game extends Scene {
           end: 3,
         }),
         frameRate: 12,
+        repeat: -1,
       });
     }
 
@@ -328,9 +322,7 @@ export class Game extends Scene {
     const spellXOffset = direction * 25; // Offset the spell's starting position based on direction
 
     // Y-offsets for multiple projectiles (optional)
-    // const offsets = Array.from({ length: this.level }, (_, i) => -20 - i * 10); // Generate offsets based on level
-
-    const offsets = [-30, -35, -40];
+    const offsets = [-30, -50, -60];
 
     offsets.forEach((offset) => {
       // Create the spell
@@ -340,7 +332,8 @@ export class Game extends Scene {
         "projectile-spell"
       );
 
-      spell.setScale(0.3);
+      spell.setScale(0.6);
+      spell.setAlpha(0.5);
 
       if (direction === -1) {
         spell.flipX = true;
@@ -352,7 +345,7 @@ export class Game extends Scene {
       spell.anims.play("spellAnim");
 
       // Set velocity and reduce gravity for a longer flight
-      const speed = 500; // Moderate speed
+      const speed = 300; // Moderate speed
       const gravity = -1900; // Negative gravity to make the arrow fly farther
       spell.setVelocityX(direction * speed);
       spell.setGravityY(gravity);

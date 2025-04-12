@@ -24,7 +24,12 @@ export class Preloader extends Scene {
 
   preload() {
     //  Load the assets for the game - Replace with your own assets
-    this.load.setPath("assets");
+    this.load.image("sky", "assets/background/sky.png");
+    this.load.image("ground", "assets/platform.png");
+    this.load.audio("tap", "assets/audio/tap.wav");
+    this.load.audio("music", "assets/audio/music.wav");
+    this.load.audio("lightning-shield", "assets/audio/lightning-shield.wav");
+    this.load.audio("jump", "assets/audio/jump.wav");
 
     // this.load.image("logo", "logo.png");
   }
