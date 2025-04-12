@@ -5,7 +5,7 @@ import { Enemy } from "../entities/Enemy";
 const PLATFORM_VERTICAL_POSITION = 315;
 const WORLD_BOUNDS_WIDTH = 2000;
 
-const PLAYER_GLOBAL_COOLDOWN = 500;
+const PLAYER_GLOBAL_COOLDOWN = 250;
 const PLAYER_GRAVITY_Y = 2000;
 const PLAYER_JUMP_VELOCITY_Y = -450; // Adjusted for smaller height
 const PLAYER_MOVEMENT_SPEED = 200; // Adjusted for smaller width
@@ -16,7 +16,7 @@ const ENEMY_SPAWN_RATE = 50;
 const ENEMY_MOVEMENT_SPEED = 50; // Adjusted for smaller world
 
 export class Game extends Scene {
-  level: number = 5;
+  level: number = 1;
   levelXp: number = 0;
   xpToNextLevel: number = 2000;
   isLevelUpEffectActive: boolean = false;
@@ -47,13 +47,13 @@ export class Game extends Scene {
       frameWidth: 19,
       frameHeight: 34,
     });
-    this.load.spritesheet("spell", "assets/projectiles.png", {
+    this.load.spritesheet("projectile-spell", "assets/projectiles.png", {
       frameWidth: 64,
       frameHeight: 64,
     });
-    this.load.spritesheet("levelUpEffect", "assets/projectiles.png", {
-      frameWidth: 64,
-      frameHeight: 64,
+    this.load.spritesheet("levelUpEffect", "assets/lightning-shield.png", {
+      frameWidth: 128,
+      frameHeight: 128,
     });
   }
 
@@ -252,8 +252,11 @@ export class Game extends Scene {
     if (!this.anims.exists("spellAnim")) {
       this.anims.create({
         key: "spellAnim",
-        frames: this.anims.generateFrameNumbers("spell", { start: 3, end: 5 }),
-        frameRate: 6,
+        frames: this.anims.generateFrameNumbers("projectile-spell", {
+          start: 3,
+          end: 5,
+        }),
+        frameRate: 12,
       });
     }
 
@@ -263,9 +266,9 @@ export class Game extends Scene {
         key: "levelUpAnim",
         frames: this.anims.generateFrameNumbers("levelUpEffect", {
           start: 0,
-          end: 9,
+          end: 3,
         }),
-        frameRate: 30,
+        frameRate: 40,
         repeat: -1, // Loop the animation
       });
     }
@@ -309,22 +312,28 @@ export class Game extends Scene {
     const spellXOffset = direction * 25; // Offset the spell's starting position based on direction
 
     // Y-offsets for multiple projectiles (optional)
-    const offsets = Array.from({ length: this.level }, (_, i) => -30 - i * 10); // Generate offsets based on level
+    const offsets = Array.from({ length: this.level }, (_, i) => -40 - i * 10); // Generate offsets based on level
 
     offsets.forEach((offset) => {
       // Create the spell
       const spell = this.spells.create(
         this.player.x + spellXOffset, // Adjust starting X position
         this.player.y + offset + 30, // Adjust Y position for spread
-        "spell"
+        "projectile-spell"
       );
+
+      if (direction === -1) {
+        spell.flipX = true;
+      } else {
+        spell.flipX = false;
+      }
 
       // Play the spell animation
       spell.anims.play("spellAnim");
 
       // Set velocity and reduce gravity for a longer flight
       const speed = 1000; // Moderate speed
-      const gravity = -1400; // Negative gravity to make the arrow fly farther
+      const gravity = -3000; // Negative gravity to make the arrow fly farther
       spell.setVelocityX(direction * speed);
       spell.setGravityY(gravity);
       spell.owner = "player"; // Tag the spell as a player spell
@@ -394,7 +403,7 @@ export class Game extends Scene {
     ).normalize();
 
     // Create the spell
-    const spell = this.spells.create(enemy.x, enemy.y - 60, "spell");
+    const spell = this.spells.create(enemy.x, enemy.y - 60, "projectile-spell");
     spell.setVelocity(direction.x * 1000, direction.y * 1000); // Set velocity towards the player
     const gravity = -1000; // Negative gravity to make the arrow fly farther
     spell.setGravityY(gravity);
@@ -551,7 +560,7 @@ export class Game extends Scene {
       this.player.y,
       "levelUpEffect"
     );
-    levelUpEffect.setScale(1); // Scale the effect to fit the player
+    levelUpEffect.setScale(0.6); // Scale the effect to fit the player
     levelUpEffect.setDepth(10); // Ensure it appears above other objects
     levelUpEffect.play("levelUpAnim"); // Play the level-up animation
 
@@ -567,7 +576,6 @@ export class Game extends Scene {
       loop: true,
     });
 
-    // Destroy the effect after 1 second
     this.time.delayedCall(5000, () => {
       followPlayer.remove(false); // Stop following the player
       levelUpEffect.destroy(); // Remove the effect
@@ -598,12 +606,6 @@ export class Game extends Scene {
     // Handle player attack while pointer is pressed
     if (this.input.activePointer.isDown) {
       this.castPlayerSpell();
-    }
-
-    if (this.isLevelUpEffectActive) {
-      this.player.setTint(0xffff00); // Apply a golden tint to the player
-    } else {
-      this.player.setTint(0xffffff); // Reset the tint to white
     }
 
     // Ensure enemies keep moving

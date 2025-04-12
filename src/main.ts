@@ -20,7 +20,7 @@ const config: Types.Core.GameConfig = {
   parent: "game-container",
   backgroundColor: "#000",
   scale: {
-    mode: Phaser.Scale.CENTER_HORIZONTALLY,
+    mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   // render: {
