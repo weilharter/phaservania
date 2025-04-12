@@ -21,7 +21,6 @@ export class Game extends Scene {
   level: number = 1;
   levelXp: number = 0;
   xpToNextLevel: number = 2000;
-  isLevelUpEffectActive: boolean = false;
   player: Player;
   playerIsInvincible: boolean = false;
   platforms: Phaser.Physics.Arcade.Group;
@@ -127,7 +126,7 @@ export class Game extends Scene {
           const damage = Phaser.Math.Between(5, 15);
           this.handlePlayerDamage(damage);
         }
-        if (this.isLevelUpEffectActive) {
+        if (this.player.isLevelUpEffectActive) {
           this.hitTarget(enemy, 9999);
         }
       },
@@ -429,7 +428,6 @@ export class Game extends Scene {
 
   handlePlayerDamage(damage: number) {
     this.player.hit(damage); // Use the `hit` method from the `Character` base class
-    this.showDamageNumber(this.player.x, this.player.y, damage);
     this.updateHealthBar();
     this.evaluateGameOver();
   }
@@ -439,7 +437,7 @@ export class Game extends Scene {
       damage = this.calculateDamage(target); // Calculate damage if not provided
     }
     target.hit(damage); // Use the `hit` method to reduce HP
-    this.showDamageNumber(target.x, target.y, damage, "#ffff00"); // Show damage number
+
     if (target.hp <= 0 && target instanceof Enemy) {
       this.gainExperience(1000); // Gain 1000 XP for killing an enemy
     }
@@ -467,33 +465,6 @@ export class Game extends Scene {
       return Phaser.Math.Between(100, 200);
     }
     return 0; // Default damage if character type is unknown
-  }
-
-  showDamageNumber(
-    x: number,
-    y: number,
-    damage: number,
-    color: string = "#ff0000"
-  ) {
-    // Create the damage number text
-    const damageText = this.add.text(x, y, `${damage}`, {
-      font: "16px Arial",
-      color: color,
-      stroke: "#000000",
-      strokeThickness: 2,
-    });
-
-    // Animate the text to move upward and fade out
-    this.tweens.add({
-      targets: damageText,
-      y: y - 30, // Move upward
-      alpha: 0.1, // Fade out
-      duration: 500, // Animation duration
-      ease: "Power1",
-      onComplete: () => {
-        damageText.destroy(); // Destroy the text after the animation
-      },
-    });
   }
 
   updateHealthBar() {

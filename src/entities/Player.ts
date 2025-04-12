@@ -15,6 +15,7 @@ export class Player extends Character {
     if (this.isInvincible) return; // Ignore damage if invincible
 
     this.hp -= damage; // Reduce HP
+    this.showDamageNumber(this.x, this.y, damage); // Show damage number
     if (this.hp <= 0) {
       // Handle player death logic here (e.g., game over)
     }
