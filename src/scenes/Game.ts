@@ -55,9 +55,7 @@ export class Game extends Scene {
 
   create() {
     // Background
-    this.add
-      .tileSprite(0, 0, WORLD_BOUNDS_WIDTH, HEIGHT, "sky")
-      .setOrigin(0, 0);
+    this.add.tileSprite(0, 0, WORLD_BOUNDS_WIDTH, HEIGHT, "bg").setOrigin(0, 0);
 
     // Play background music
     const backgroundMusic = this.sound.add("music", {
