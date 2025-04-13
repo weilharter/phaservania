@@ -62,7 +62,10 @@ export class Game extends Scene {
 
   create() {
     // Background
-    this.add.tileSprite(0, 0, WORLD_BOUNDS_WIDTH, HEIGHT, "bg").setOrigin(0, 0);
+    this.add
+      .tileSprite(0, -20, WORLD_BOUNDS_WIDTH, HEIGHT, "bg")
+      .setOrigin(0, 0)
+      .setAlpha(0.4);
 
     // Play background music
     const backgroundMusic = this.sound.add("music", {
@@ -86,7 +89,8 @@ export class Game extends Scene {
 
     // Expand world bounds
     this.physics.world.setBounds(0, 0, WORLD_BOUNDS_WIDTH, HEIGHT);
-    this.cameras.main.setBounds(0, 0, WORLD_BOUNDS_WIDTH, HEIGHT);
+    // this.cameras.main.setBounds(0, 0, WORLD_BOUNDS_WIDTH, HEIGHT);
+    this.cameras.main.setBounds(250, -15, WORLD_BOUNDS_WIDTH - 500, HEIGHT);
 
     // Platforms
     this.platforms = this.physics.add.group({
@@ -183,19 +187,33 @@ export class Game extends Scene {
   }
 
   createPlatforms() {
+    const createPlatform = (
+      x: number,
+      y: number,
+      widthScale: number = 1,
+      heightScale: number = 1,
+      tint: number = 0x000
+    ) => {
+      this.platforms
+        .create(x, y, "ground")
+        .setScale(widthScale, heightScale)
+        .setTint(tint)
+        .setOrigin(0.5, 0.5)
+        .setDepth(1000)
+        .refreshBody();
+    };
+
     const platformWidth = 200; // Adjusted for smaller world
     const numPlatforms = Math.ceil(WORLD_BOUNDS_WIDTH / platformWidth) + 1; // Calculate how many platforms are needed
 
     // Create horizontal platforms
     for (let i = 0; i < numPlatforms; i++) {
-      this.platforms
-        .create(
-          i * platformWidth,
-          PLATFORM_VERTICAL_POSITION, // Adjusted for smaller height
-          "ground"
-        )
-        .setScale(1)
-        .refreshBody();
+      createPlatform(
+        i * platformWidth,
+        PLATFORM_VERTICAL_POSITION, // Adjusted for smaller height
+        1,
+        1
+      );
     }
 
     // Create vertical platforms at the left and right boundaries
@@ -203,18 +221,15 @@ export class Game extends Scene {
     const verticalPlatformWidth = 20; // Width of the vertical platforms
 
     // Left boundary platform
-    this.platforms
-      .create(0, HEIGHT / 2, "ground")
-      .setScale(1, platformHeight / verticalPlatformWidth) // Scale to make it tall
-      .setOrigin(0.5, 0.5)
-      .refreshBody();
+    createPlatform(0, HEIGHT / 2, 1, platformHeight / verticalPlatformWidth);
 
     // Right boundary platform
-    this.platforms
-      .create(WORLD_BOUNDS_WIDTH, HEIGHT / 2, "ground")
-      .setScale(1, platformHeight / verticalPlatformWidth) // Scale to make it tall
-      .setOrigin(0.5, 0.5)
-      .refreshBody();
+    createPlatform(
+      WORLD_BOUNDS_WIDTH,
+      HEIGHT / 2,
+      1,
+      platformHeight / verticalPlatformWidth
+    );
   }
 
   createAnimations() {
