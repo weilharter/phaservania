@@ -15,7 +15,6 @@ export const MAX_ENEMIES = 10; // Reduced due to smaller world size
 
 export const ENEMY_SPAWN_RATE = 250;
 
-
 export class Game extends Scene {
   player: Player;
   platforms: Phaser.Physics.Arcade.Group;
@@ -264,12 +263,23 @@ export class Game extends Scene {
 
   handleMovement() {
     try {
+      const pointer = this.input.activePointer;
+      if (pointer.worldX < this.player.x) {
+        this.player.flipX = true;
+      } else {
+        this.player.flipX = false;
+      }
       if (this.input.keyboard) {
         if (this.cursorKeys.left.isDown || this.keyboardKeys.A.isDown) {
+          this.player.flipX = true;
+          this.player.anims.play("char-running", true);
           this.player.setVelocityX(-PLAYER_MOVEMENT_SPEED);
         } else if (this.cursorKeys.right.isDown || this.keyboardKeys.D.isDown) {
+          this.player.flipX = false;
+          this.player.anims.play("char-running", true);
           this.player.setVelocityX(PLAYER_MOVEMENT_SPEED);
         } else {
+          this.player.anims.play("char-idle", true);
           this.player.setVelocityX(0);
         }
         if (
@@ -281,14 +291,6 @@ export class Game extends Scene {
           this.sound.play("jump", { volume: 0.2 });
           this.player.setVelocityY(PLAYER_JUMP_VELOCITY_Y);
         }
-      }
-      const pointer = this.input.activePointer;
-      if (pointer.worldX < this.player.x) {
-        this.player.anims.play("char-running", true);
-        this.player.flipX = true;
-      } else {
-        this.player.anims.play("char-running", true);
-        this.player.flipX = false;
       }
     } catch (error) {}
   }

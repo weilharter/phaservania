@@ -35,7 +35,7 @@ export class Preloader extends Scene {
     this.load.image("bg", "assets/bg.png");
     this.load.image("ground", "assets/platform.png");
     this.load.audio("tap", "assets/audio/tap.wav");
-    this.load.audio("music", "assets/audio/music.wav");
+    this.load.audio("music", "assets/audio/music.mp3");
     this.load.audio("lightning-shield", "assets/audio/lightning-shield.wav");
     this.load.audio("jump", "assets/audio/jump.wav");
 
