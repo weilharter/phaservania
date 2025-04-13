@@ -18,6 +18,13 @@ export class Enemy extends Character {
       player.y - this.y
     ).normalize();
 
+    // Flip the enemy sprite based on the horizontal direction
+    if (direction.x < 0) {
+      this.setFlipX(true); // Face left
+    } else {
+      this.setFlipX(false); // Face right
+    }
+
     // Create the spell
     const spell = this.scene.spells.create(
       this.x,

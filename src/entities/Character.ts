@@ -41,8 +41,8 @@ export class Character extends Phaser.Physics.Arcade.Sprite {
     this.scene.tweens.add({
       targets: damageText,
       y: y - 30, // Move upward
-      alpha: 0.1, // Fade out
-      duration: 500, // Animation duration
+      alpha: 1, // Fade out
+      duration: 350, // Animation duration
       ease: "Power1",
       onComplete: () => {
         damageText.destroy(); // Destroy the text after the animation

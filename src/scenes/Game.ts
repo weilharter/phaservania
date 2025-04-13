@@ -39,6 +39,10 @@ export class Game extends Scene {
       frameWidth: 19,
       frameHeight: 34,
     });
+    // this.load.spritesheet("goblin", "assets/goblin.png", {
+    //   frameWidth: 150,
+    //   frameHeight: 150,
+    // });
     this.load.spritesheet("projectile-spell", "assets/lightning-bolt.png", {
       frameWidth: 256,
       frameHeight: 128,
@@ -209,6 +213,18 @@ export class Game extends Scene {
   }
 
   createAnimations() {
+    // if (!this.anims.exists("goblinwalk")) {
+    //   this.anims.create({
+    //     key: "goblinwalk",
+    //     frames: this.anims.generateFrameNumbers("goblin", {
+    //       start: 0,
+    //       end: 11,
+    //     }),
+    //     frameRate: 10,
+    //     repeat: -1,
+    //   });
+    // }
+
     if (!this.anims.exists("left")) {
       this.anims.create({
         key: "left",
@@ -322,11 +338,11 @@ export class Game extends Scene {
         : Phaser.Math.Between(WORLD_BOUNDS_WIDTH / 2, spawnAreaEnd); // Right half of the spawn area
     } while (Math.abs(spawnX - this.player.x) < 100); // Ensure enemy spawns at least 300px away from the player
 
-    const spawnY = PLATFORM_VERTICAL_POSITION - 40; // Spawn above the platform
+    const spawnY = PLATFORM_VERTICAL_POSITION - 150; // Spawn above the platform
 
     // Create the enemy
-    const enemy = new Enemy(this, spawnX, spawnY, "charmodel");
-    enemy.anims.play("front");
+    const enemy = new Enemy(this, spawnX, spawnY, "goblin");
+    enemy.anims.play("goblinwalk");
     this.enemies.add(enemy); // Add to the enemies group
     this.characters.add(enemy); // Add to the characters group
 
