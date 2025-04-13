@@ -1,14 +1,21 @@
-import { Scene } from "phaser";
+import { Scene, GameObjects } from "phaser";
 import { HEIGHT, WIDTH } from "../main";
 
 export class Preloader extends Scene {
+  background: GameObjects.Image;
+
   constructor() {
     super("Preloader");
   }
 
   init() {
     //  We loaded this image in our Boot Scene, so we can display it here
-    this.add.image(512, 384, "background");
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2;
+
+    this.background = this.add.image(centerX, centerY, "background");
+    this.background.setAlpha(0.5);
+
     //  A simple progress bar. This is the outline of the bar.
     this.add
       .rectangle(WIDTH / 2, HEIGHT / 2, WIDTH - 172, 32)

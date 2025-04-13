@@ -13,7 +13,8 @@ export class MainMenu extends Scene {
     const centerX = this.scale.width / 2;
     const centerY = this.scale.height / 2;
 
-    this.background;
+    this.background = this.add.image(centerX, centerY, "background");
+    this.background.setAlpha(0.5);
 
     this.subtitle = this.add
       .text(centerX, centerY, "PRESS SPACE OR TAP TO START", {

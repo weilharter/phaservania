@@ -42,6 +42,14 @@ export class Game extends Scene {
       frameWidth: 120,
       frameHeight: 80,
     });
+    this.load.spritesheet("char-jump", "assets/char-jump.png", {
+      frameWidth: 120,
+      frameHeight: 80,
+    });
+    this.load.spritesheet("char-attack", "assets/char-attack.png", {
+      frameWidth: 120,
+      frameHeight: 80,
+    });
     this.load.spritesheet("projectile-spell", "assets/lightning-bolt.png", {
       frameWidth: 256,
       frameHeight: 128,
@@ -234,6 +242,30 @@ export class Game extends Scene {
       });
     }
 
+    if (!this.anims.exists("char-attack")) {
+      this.anims.create({
+        key: "char-attack",
+        frames: this.anims.generateFrameNumbers("char-attack", {
+          start: 0,
+          end: 5,
+        }),
+        frameRate: 10,
+        repeat: -1,
+      });
+    }
+
+    if (!this.anims.exists("char-jump")) {
+      this.anims.create({
+        key: "char-jump",
+        frames: this.anims.generateFrameNumbers("char-jump", {
+          start: 0,
+          end: 2,
+        }),
+        frameRate: 10,
+        repeat: -1,
+      });
+    }
+
     // Add the spell animation
     if (!this.anims.exists("spellAnim")) {
       this.anims.create({
@@ -272,14 +304,20 @@ export class Game extends Scene {
       if (this.input.keyboard) {
         if (this.cursorKeys.left.isDown || this.keyboardKeys.A.isDown) {
           this.player.flipX = true;
-          this.player.anims.play("char-running", true);
+          if (this.player.body?.touching.down) {
+            this.player.anims.play("char-running", true);
+          }
           this.player.setVelocityX(-PLAYER_MOVEMENT_SPEED);
         } else if (this.cursorKeys.right.isDown || this.keyboardKeys.D.isDown) {
           this.player.flipX = false;
-          this.player.anims.play("char-running", true);
+          if (this.player.body?.touching.down) {
+            this.player.anims.play("char-running", true);
+          }
           this.player.setVelocityX(PLAYER_MOVEMENT_SPEED);
         } else {
-          this.player.anims.play("char-idle", true);
+          if (this.player.body?.touching.down) {
+            this.player.anims.play("char-idle", true);
+          }
           this.player.setVelocityX(0);
         }
         if (
@@ -288,6 +326,7 @@ export class Game extends Scene {
             this.keyboardKeys.W.isDown) &&
           this.player.body?.touching.down
         ) {
+          this.player.anims.play("char-jump", true);
           this.sound.play("jump", { volume: 0.2 });
           this.player.setVelocityY(PLAYER_JUMP_VELOCITY_Y);
         }
@@ -315,26 +354,9 @@ export class Game extends Scene {
     } while (Math.abs(spawnX - this.player.x) < 100); // Ensure enemy spawns at least 300px away from the player
 
     const spawnY = PLATFORM_VERTICAL_POSITION - 500; // Spawn above the platform
-
-    // Create the enemy
     const enemy = new Enemy(this, spawnX, spawnY, "char-idle");
-    // enemy.anims.play("char-running");
     this.enemies.add(enemy); // Add to the enemies group
     this.characters.add(enemy); // Add to the characters group
-
-    // // Make the enemy move left and right
-    // let direction = "left";
-    // this.time.addEvent({
-    //   delay: 500, // Change direction every 500ms
-    //   callback: () => {
-    //     if (enemy.active) {
-    //       direction = direction === "left" ? "right" : "left";
-    //       enemy.anims.play(direction, true);
-    //     }
-    //   },
-    //   callbackScope: this,
-    //   loop: true,
-    // });
   }
 
   handlePlayerDamage(damage: number) {
