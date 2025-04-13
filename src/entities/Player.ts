@@ -65,11 +65,11 @@ export class Player extends Character {
 
     // Add a shiny overlay sprite
     this.levelUpEffect = this.scene.add.sprite(this.x, this.y, "levelUpEffect");
-    this.levelUpEffect.setScale(0.6); // Scale the effect to fit the player
+    this.levelUpEffect.setScale(1); // Scale the effect to fit the player
     this.levelUpEffect.setDepth(10); // Ensure it appears above other objects
     this.levelUpEffect.play("levelUpAnim"); // Play the level-up animation
 
-    this.scene.sound.play("lightning-shield", { volume: 1, loop: true });
+    this.scene.sound.play("lightning-shield", { volume: 0.5, loop: true });
 
     // Follow the player during the effect
     const followPlayer = this.scene.time.addEvent({
@@ -86,7 +86,7 @@ export class Player extends Character {
     });
 
     // End the effect after 5 seconds
-    this.scene.time.delayedCall(5000, () => {
+    this.scene.time.delayedCall(2000, () => {
       this.scene.sound.stopByKey("lightning-shield");
       followPlayer.remove(false); // Stop following the player
       if (this.levelUpEffect) {
@@ -104,7 +104,7 @@ export class Player extends Character {
     this.playerCanAttack = false;
 
     // Determine direction based on the player's facing direction
-    const direction = this.anims.currentAnim?.key == "left" ? -1 : 1; // -1 for left, 1 for right
+    const direction = this.flipX ? -1 : 1; // -1 for left, 1 for right
     const spellXOffset = direction * 25; // Offset the spell's starting position based on direction
 
     // Y-offsets for multiple projectiles (optional)
@@ -121,11 +121,7 @@ export class Player extends Character {
       spell.setScale(0.6);
       spell.setAlpha(0.5);
 
-      if (direction === -1) {
-        spell.flipX = true;
-      } else {
-        spell.flipX = false;
-      }
+      spell.flipX = this.flipX;
 
       // Play the spell animation
       spell.anims.play("spellAnim");

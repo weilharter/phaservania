@@ -14,7 +14,7 @@ export const PLAYER_MOVEMENT_SPEED = 200; // Adjusted for smaller width
 export const MAX_ENEMIES = 10; // Reduced due to smaller world size
 
 export const ENEMY_SPAWN_RATE = 250;
-export const ENEMY_MOVEMENT_SPEED = 100; // Adjusted for smaller world
+
 
 export class Game extends Scene {
   player: Player;
@@ -35,14 +35,14 @@ export class Game extends Scene {
   }
 
   preload() {
-    this.load.spritesheet("charmodel", "assets/char-idle.png", {
-      frameWidth: 19,
-      frameHeight: 34,
+    this.load.spritesheet("char-idle", "assets/char-idle.png", {
+      frameWidth: 120,
+      frameHeight: 80,
     });
-    // this.load.spritesheet("goblin", "assets/goblin.png", {
-    //   frameWidth: 150,
-    //   frameHeight: 150,
-    // });
+    this.load.spritesheet("char-running", "assets/char-running.png", {
+      frameWidth: 120,
+      frameHeight: 80,
+    });
     this.load.spritesheet("projectile-spell", "assets/lightning-bolt.png", {
       frameWidth: 256,
       frameHeight: 128,
@@ -69,7 +69,7 @@ export class Game extends Scene {
       this,
       WORLD_BOUNDS_WIDTH / 2,
       HEIGHT - 60,
-      "charmodel"
+      "char-idle"
     );
     this.cameras.main.startFollow(this.player, true, 5, 5);
 
@@ -211,48 +211,24 @@ export class Game extends Scene {
   }
 
   createAnimations() {
-    // if (!this.anims.exists("goblinwalk")) {
-    //   this.anims.create({
-    //     key: "goblinwalk",
-    //     frames: this.anims.generateFrameNumbers("goblin", {
-    //       start: 0,
-    //       end: 11,
-    //     }),
-    //     frameRate: 10,
-    //     repeat: -1,
-    //   });
-    // }
-
-    if (!this.anims.exists("left")) {
+    if (!this.anims.exists("char-idle")) {
       this.anims.create({
-        key: "left",
-        frames: this.anims.generateFrameNumbers("charmodel", {
+        key: "char-idle",
+        frames: this.anims.generateFrameNumbers("char-idle", {
           start: 0,
-          end: 11,
+          end: 9,
         }),
         frameRate: 10,
         repeat: -1,
       });
     }
 
-    if (!this.anims.exists("front")) {
+    if (!this.anims.exists("char-running")) {
       this.anims.create({
-        key: "front",
-        frames: this.anims.generateFrameNumbers("charmodel", {
+        key: "char-running",
+        frames: this.anims.generateFrameNumbers("char-running", {
           start: 0,
-          end: 11,
-        }),
-        frameRate: 10,
-        repeat: -1,
-      });
-    }
-
-    if (!this.anims.exists("right")) {
-      this.anims.create({
-        key: "right",
-        frames: this.anims.generateFrameNumbers("charmodel", {
-          start: 0,
-          end: 11,
+          end: 9,
         }),
         frameRate: 10,
         repeat: -1,
@@ -308,10 +284,10 @@ export class Game extends Scene {
       }
       const pointer = this.input.activePointer;
       if (pointer.worldX < this.player.x) {
-        this.player.anims.play("left", true);
+        this.player.anims.play("char-running", true);
         this.player.flipX = true;
       } else {
-        this.player.anims.play("right", true);
+        this.player.anims.play("char-running", true);
         this.player.flipX = false;
       }
     } catch (error) {}
@@ -336,27 +312,27 @@ export class Game extends Scene {
         : Phaser.Math.Between(WORLD_BOUNDS_WIDTH / 2, spawnAreaEnd); // Right half of the spawn area
     } while (Math.abs(spawnX - this.player.x) < 100); // Ensure enemy spawns at least 300px away from the player
 
-    const spawnY = PLATFORM_VERTICAL_POSITION - 150; // Spawn above the platform
+    const spawnY = PLATFORM_VERTICAL_POSITION - 500; // Spawn above the platform
 
     // Create the enemy
-    const enemy = new Enemy(this, spawnX, spawnY, "goblin");
-    enemy.anims.play("goblinwalk");
+    const enemy = new Enemy(this, spawnX, spawnY, "char-idle");
+    // enemy.anims.play("char-running");
     this.enemies.add(enemy); // Add to the enemies group
     this.characters.add(enemy); // Add to the characters group
 
-    // Make the enemy move left and right
-    let direction = "left";
-    this.time.addEvent({
-      delay: 500, // Change direction every 500ms
-      callback: () => {
-        if (enemy.active) {
-          direction = direction === "left" ? "right" : "left";
-          enemy.anims.play(direction, true);
-        }
-      },
-      callbackScope: this,
-      loop: true,
-    });
+    // // Make the enemy move left and right
+    // let direction = "left";
+    // this.time.addEvent({
+    //   delay: 500, // Change direction every 500ms
+    //   callback: () => {
+    //     if (enemy.active) {
+    //       direction = direction === "left" ? "right" : "left";
+    //       enemy.anims.play(direction, true);
+    //     }
+    //   },
+    //   callbackScope: this,
+    //   loop: true,
+    // });
   }
 
   handlePlayerDamage(damage: number) {
@@ -448,25 +424,7 @@ export class Game extends Scene {
   chasePlayer() {
     // Ensure enemies keep moving
     this.enemies.getChildren().forEach((enemy: Enemy) => {
-      if (enemy.active) {
-        const distanceToPlayer = Math.abs(this.player.x - enemy.x);
-        if (distanceToPlayer < 15) {
-          // Move away from the player if too close
-          const directionX = this.player.x > enemy.x ? -1 : 1; // Move away from the player's X position
-          enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
-        } else if (distanceToPlayer > 15) {
-          // Move closer to the player if too far
-          const directionX = this.player.x > enemy.x ? 1 : -1; // Move towards the player's X position
-          enemy.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
-        } else {
-          enemy.setVelocityX(0); // Stop moving if within the desired range
-        }
-        // Make the enemy jump randomly
-        if (enemy.body?.touching.down && Phaser.Math.Between(0, 200) === 0) {
-          enemy.setVelocityY(Phaser.Math.Between(-200, -800));
-          enemy.castSpellTowardsPlayer(this.player);
-        }
-      }
+      enemy.chasePlayer(this.player);
     });
   }
 
