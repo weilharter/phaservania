@@ -1,10 +1,12 @@
 import { Character } from "./Character";
 import { Player } from "./Player";
 
-export const ENEMY_GLOBAL_COOLDOWN = 10000;
+export const ENEMY_GLOBAL_COOLDOWN = 1000;
 export const ENEMY_MOVEMENT_SPEED = 100; // Adjusted for smaller world
 
 export class Enemy extends Character {
+  isAttacking: boolean = false;
+
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string) {
     super(scene, x, y, texture, 50); // Default HP for enemies
     this.setTint(0xff0000); // Red tint for enemies
@@ -55,10 +57,42 @@ export class Enemy extends Character {
       }
 
       const distanceToPlayer = Math.abs(player.x - this.x);
-      if (distanceToPlayer < 30) {
-        // Move away from the player if too close
-        // const directionX = player.x > this.x ? -1 : 1; // Move away from the player's X position
-        this.anims.play("char-attack", true);
+      if (distanceToPlayer < 30 && this.isAttacking === false) {
+        this.isAttacking = true;
+        this.anims.play("char-attack");
+        // Create a temporary hitbox for the attack
+        const attackHitbox = this.scene.add.rectangle(
+          this.x + (this.flipX ? -20 : 20), // Offset based on direction
+          this.y,
+          40, // Width of the hitbox
+          20 // Height of the hitbox
+          // 0xff0000, // Optional: Red color for debugging
+          // 0.5 // Optional: Transparency for debugging
+        );
+        this.scene.physics.add.existing(attackHitbox);
+        (attackHitbox.body as Phaser.Physics.Arcade.Body).setAllowGravity(
+          false
+        );
+
+        // Check for collision with the player
+        this.scene.physics.add.overlap(
+          attackHitbox,
+          player,
+          () => {
+            if (!player.isInvincible) {
+              const damage = Phaser.Math.Between(5, 15); // Damage range
+              player.hit(damage); // Call the player's `hit` method
+            }
+          },
+          undefined,
+          this
+        );
+
+        // Destroy the hitbox after the attack animation
+        this.scene.time.delayedCall(ENEMY_GLOBAL_COOLDOWN, () => {
+          attackHitbox.destroy();
+          this.isAttacking = false;
+        });
         // this.setVelocityX(directionX * ENEMY_MOVEMENT_SPEED);
       } else if (distanceToPlayer > 100) {
         // Move closer to the player if too far
@@ -68,7 +102,7 @@ export class Enemy extends Character {
       }
       // Make the enemy jump randomly
       if (this.body?.touching.down && Phaser.Math.Between(0, 200) === 0) {
-        this.anims.play("char-jump", true);
+        this.anims.play("char-jump");
         this.setVelocityY(Phaser.Math.Between(-200, -800));
         // this.castSpellTowardsPlayer(player);
       }

@@ -8,8 +8,8 @@ export const PLATFORM_VERTICAL_POSITION = 315;
 export const WORLD_BOUNDS_WIDTH = 2000;
 
 export const PLAYER_GRAVITY_Y = 2000;
-export const PLAYER_JUMP_VELOCITY_Y = -450; // Adjusted for smaller height
-export const PLAYER_MOVEMENT_SPEED = 200; // Adjusted for smaller width
+export const PLAYER_JUMP_VELOCITY_Y = -800; // Adjusted for smaller height
+export const PLAYER_MOVEMENT_SPEED = 400; // Adjusted for smaller width
 
 export const MAX_ENEMIES = 10; // Reduced due to smaller world size
 
@@ -126,10 +126,10 @@ export class Game extends Scene {
       this.player,
       (_playerObj, enemyObj) => {
         const enemy = enemyObj as Enemy;
-        if (!this.player.isInvincible) {
-          const damage = Phaser.Math.Between(5, 15);
-          this.handlePlayerDamage(damage);
-        }
+        // if (!this.player.isInvincible) {
+        //   const damage = Phaser.Math.Between(5, 15);
+        //   this.handlePlayerDamage(damage);
+        // }
         if (this.player.isLevelUpEffectActive) {
           this.hitTarget(enemy, 9999);
         }
@@ -249,8 +249,8 @@ export class Game extends Scene {
           start: 0,
           end: 5,
         }),
-        frameRate: 10,
-        repeat: -1,
+        frameRate: 12,
+        repeat: 0,
       });
     }
 
@@ -261,8 +261,8 @@ export class Game extends Scene {
           start: 0,
           end: 2,
         }),
-        frameRate: 10,
-        repeat: -1,
+        frameRate: 5,
+        repeat: 0,
       });
     }
 
@@ -304,18 +304,18 @@ export class Game extends Scene {
       if (this.input.keyboard) {
         if (this.cursorKeys.left.isDown || this.keyboardKeys.A.isDown) {
           this.player.flipX = true;
-          if (this.player.body?.touching.down) {
+          if (this.player.body?.touching.down && !this.player.isAttacking) {
             this.player.anims.play("char-running", true);
           }
           this.player.setVelocityX(-PLAYER_MOVEMENT_SPEED);
         } else if (this.cursorKeys.right.isDown || this.keyboardKeys.D.isDown) {
           this.player.flipX = false;
-          if (this.player.body?.touching.down) {
+          if (this.player.body?.touching.down && !this.player.isAttacking) {
             this.player.anims.play("char-running", true);
           }
           this.player.setVelocityX(PLAYER_MOVEMENT_SPEED);
         } else {
-          if (this.player.body?.touching.down) {
+          if (this.player.body?.touching.down && !this.player.isAttacking) {
             this.player.anims.play("char-idle", true);
           }
           this.player.setVelocityX(0);
@@ -326,7 +326,7 @@ export class Game extends Scene {
             this.keyboardKeys.W.isDown) &&
           this.player.body?.touching.down
         ) {
-          this.player.anims.play("char-jump", true);
+          this.player.anims.play("char-jump");
           this.sound.play("jump", { volume: 0.2 });
           this.player.setVelocityY(PLAYER_JUMP_VELOCITY_Y);
         }
@@ -335,7 +335,7 @@ export class Game extends Scene {
   }
 
   spawnEnemies() {
-    if (this.enemies.countActive(true) >= MAX_ENEMIES) return;
+    if (this.enemies.countActive() >= MAX_ENEMIES) return;
 
     // Define spawn margins
     const margin = 100; // Margin from the left and right boundaries

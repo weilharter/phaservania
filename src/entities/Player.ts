@@ -10,7 +10,7 @@ export class Player extends Character {
   isInvincible: boolean = false; // Flag to track invincibility
   isLevelUpEffectActive: boolean = false; // Flag to track level-up effect
   levelUpEffect: Phaser.GameObjects.Sprite | null = null; // Reference to the level-up effect sprite
-  playerCanAttack: boolean = true;
+  isAttacking: boolean = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string) {
     super(scene, x, y, texture, 100); // Default HP for the player
@@ -99,9 +99,9 @@ export class Player extends Character {
   }
 
   castPlayerSpell() {
-    if (!this.playerCanAttack) return;
+    if (this.isAttacking) return;
 
-    this.playerCanAttack = false;
+    this.isAttacking = true;
 
     // Determine direction based on the player's facing direction
     const direction = this.flipX ? -1 : 1; // -1 for left, 1 for right
@@ -125,6 +125,7 @@ export class Player extends Character {
 
       // Play the spell animation
       spell.anims.play("spellAnim");
+      this.anims.play("char-attack");
 
       // Set velocity and reduce gravity for a longer flight
       const speed = 300; // Moderate speed
@@ -141,7 +142,7 @@ export class Player extends Character {
 
     // Reset the attack cooldown
     this.scene.time.delayedCall(PLAYER_GLOBAL_COOLDOWN, () => {
-      this.playerCanAttack = true;
+      this.isAttacking = false;
     });
   }
 }
